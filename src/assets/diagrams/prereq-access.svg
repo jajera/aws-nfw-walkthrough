@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 380" width="100%" role="img"
+     aria-label="Three AWS CLI profiles map to three accounts, and each account applies stacks in both ap-southeast-2 and ap-southeast-6"
+     font-family="Manrope, Open Sans, Segoe UI, sans-serif">
+  <title>Which profile drives which stacks, in which Region</title>
+  <desc>Three rows. Each row starts with an AWS CLI profile placeholder, points at the account it authenticates to, then shows the stacks that account applies in ap-southeast-2 Sydney and in ap-southeast-6 Auckland. The hub profile drives the hub stack in both Regions plus the hub-peering stack, which exists only in ap-southeast-2. The dev profile drives workload-dev in both Regions and the prod profile drives workload-prod in both Regions. Every profile has to reach both Regions, and ap-southeast-6 may need Region opt-in.</desc>
+
+<!--
+  Icons are official AWS Architecture Icons, inlined as <symbol> from
+  https://jajera.github.io/aws-icons/ (browse, copy, strip the Sketch id=""
+  attributes so ids stay unique in the page).
+  Colours come from the .diagram-* classes in src/styles/splash-overrides.css:
+  presentation attributes here are the light palette, the CSS overrides dark.
+-->
+  <defs>
+    <marker id="acc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" class="diagram-edge-fill" fill="#7a969e"/>
+    </marker>
+    <symbol id="acc-aws-cli" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#C925D1">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <path d="M12,13 L12,67 L46,67 L46,65 L14,65 L14,23 L66,23 L66,65 L59,65 L59,67 L68,67 L68,13 L12,13 Z M14,21 L66,21 L66,15 L14,15 L14,21 Z M25,19 L27.001,19 L27.001,16.999 L25,16.999 L25,19 Z M21,19 L23,19 L23,16.999 L21,16.999 L21,19 Z M17,19 L19,19 L19,16.999 L17,16.999 L17,19 Z M23.326,33.432 L33.406,43.514 L23.326,53.594 L24.74,55.008 L36.234,43.514 L24.74,32.018 L23.326,33.432 Z M38,51 L55,51 L55,49 L38,49 L38,51 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="acc-aws-org" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#E7157B">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <path d="M55,63.00001 L63,63.00001 L63,55.00005 L55,55.00005 L55,63.00001 Z M36,63.00001 L44,63.00001 L44,55.00005 L36,55.00005 L36,63.00001 Z M17,63.00001 L25,63.00001 L25,55.00005 L17,55.00005 L17,63.00001 Z M64,53.00006 L60,53.00006 L60,48.000085 C60,47.4480878 59.552,47.00009 59,47.00009 L41,47.00009 L41,44.000105 L39,44.000105 L39,47.00009 L21,47.00009 C20.447,47.00009 20,47.4480878 20,48.000085 L20,53.00006 L16,53.00006 C15.447,53.00006 15,53.4480578 15,54.000055 L15,64.000005 C15,64.5520022 15.447,65 16,65 L26,65 C26.552,65 27,64.5520022 27,64.000005 L27,54.000055 C27,53.4480578 26.552,53.00006 26,53.00006 L22,53.00006 L22,49.00008 L39,49.00008 L39,53.00006 L35,53.00006 C34.447,53.00006 34,53.4480578 34,54.000055 L34,64.000005 C34,64.5520022 34.447,65 35,65 L45,65 C45.552,65 46,64.5520022 46,64.000005 L46,54.000055 C46,53.4480578 45.552,53.00006 45,53.00006 L41,53.00006 L41,49.00008 L58,49.00008 L58,53.00006 L54,53.00006 C53.447,53.00006 53,53.4480578 53,54.000055 L53,64.000005 C53,64.5520022 53.447,65 54,65 L64,65 C64.552,65 65,64.5520022 65,64.000005 L65,54.000055 C65,53.4480578 64.552,53.00006 64,53.00006 L64,53.00006 Z M40,17.1552392 L49,22.3512132 L40,27.5471873 L31,22.3512132 L40,17.1552392 Z M41,39.6711266 L41,29.2791786 L50,24.0832046 L50,34.4761526 L41,39.6711266 Z M30,24.0832046 L39,29.2791786 L39,39.6711266 L30,34.4761526 L30,24.0832046 Z M28.5,35.9191454 L39.5,42.2701136 C39.654,42.3591132 39.827,42.403113 40,42.403113 C40.172,42.403113 40.345,42.3591132 40.5,42.2701136 L51.5,35.9191454 C51.809,35.7401463 52,35.4101479 52,35.0531497 L52,22.3512132 C52,21.994215 51.809,21.6642167 51.5,21.4852176 L40.5,15.1342493 C40.191,14.9552502 39.808,14.9552502 39.5,15.1342493 L28.5,21.4852176 C28.19,21.6642167 28,21.994215 28,22.3512132 L28,35.0531497 C28,35.4101479 28.19,35.7401463 28.5,35.9191454 L28.5,35.9191454 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="acc-grp-region" viewBox="0 0 40 40">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <rect fill="#00A4A6" x="0" y="0" width="40" height="40"></rect>
+      <path d="M14,20.026 L14,11.026 L29.293,11.026 L25.146,15.172 C24.951,15.368 24.951,15.684 25.146,15.88 L29.293,20.026 L14,20.026 Z M26.207,15.526 L30.854,10.88 C30.996,10.736 31.039,10.522 30.962,10.335 C30.885,10.148 30.702,10.026 30.5,10.026 L14,10.026 L14,8.97 C14.596,8.76 15.026,8.198 15.026,7.531 C15.026,6.687 14.34,6 13.495,6 C12.65,6 11.963,6.687 11.963,7.531 C11.963,8.201 12.398,8.766 13,8.973 L13,33.026 L10,33.026 L10,34.026 L17,34.026 L17,33.026 L14,33.026 L14,21.026 L30.5,21.026 C30.702,21.026 30.885,20.904 30.962,20.717 C31.039,20.53 30.996,20.316 30.854,20.172 L26.207,15.526 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="acc-grp-account" viewBox="0 0 40 40">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <rect fill="#E7157B" x="0" y="0" width="40" height="40"></rect>
+      <path d="M24.5,22 C26.43,22 28,23.57 28,25.5 C28,27.43 26.43,29 24.5,29 C22.57,29 21,27.43 21,25.5 C21,23.57 22.57,22 24.5,22 L24.5,22 Z M24.5,30 C26.981,30 29,27.981 29,25.5 C29,23.019 26.981,21 24.5,21 C22.019,21 20,23.019 20,25.5 C20,27.981 22.019,30 24.5,30 L24.5,30 Z M26.023,10.88 L29.084,17 L22.963,17 L26.023,10.88 Z M22.154,18 L29.893,18 C30.065,18 30.227,17.91 30.318,17.763 C30.409,17.615 30.417,17.432 30.34,17.276 L26.471,9.538 C26.301,9.2 25.746,9.2 25.576,9.538 L21.707,17.276 C21.63,17.432 21.638,17.615 21.729,17.763 C21.82,17.91 21.981,18 22.154,18 L22.154,18 Z M11,23 L18,23 L18,16 L11,16 L11,23 Z M10.5,24 L18.5,24 C18.776,24 19,23.776 19,23.5 L19,15.5 C19,15.224 18.776,15 18.5,15 L10.5,15 C10.224,15 10,15.224 10,15.5 L10,23.5 C10,23.776 10.224,24 10.5,24 L10.5,24 Z M8,32 L32,32 L32,8 L8,8 L8,32 Z M32.5,7 L7.5,7 C7.224,7 7,7.224 7,7.5 L7,32.5 C7,32.776 7.224,33 7.5,33 L32.5,33 C32.776,33 33,32.776 33,32.5 L33,7.5 C33,7.224 32.776,7 32.5,7 L32.5,7 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+  </defs>
+
+  <!-- column headers -->
+  <text x="12" y="32" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">AWS CLI profile</text>
+  <text x="270" y="32" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">Account</text>
+
+  <!-- ══ Region columns ═══════════════════════════════════════════════════ -->
+  <rect x="494" y="14" width="236" height="318" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#acc-grp-region" x="506" y="20" width="14" height="14"/>
+  <text x="526" y="31" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">ap-southeast-2</text>
+
+  <rect x="744" y="14" width="224" height="318" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#acc-grp-region" x="756" y="20" width="14" height="14"/>
+  <text x="776" y="31" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">ap-southeast-6</text>
+
+  <!-- ══ hub row ══════════════════════════════════════════════════════════ -->
+  <rect x="12" y="48" width="238" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#acc-aws-cli" x="28" y="72" width="32" height="32"/>
+  <text x="70" y="86" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">YOUR_HUB_PROFILE</text>
+  <text x="70" y="102" class="diagram-caption" fill="#3a5560" font-size="9">both hubs + peering</text>
+
+  <line x1="252" y1="88" x2="266" y2="88" class="diagram-edge" stroke="#7a969e" stroke-width="1.5" marker-end="url(#acc-arrow)"/>
+
+  <rect x="270" y="48" width="200" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#acc-grp-account" x="284" y="62" width="14" height="14"/>
+  <text x="304" y="73" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">Hub account</text>
+  <text x="284" y="94" class="diagram-caption" fill="#3a5560" font-size="9">TGW · inspection VPC · NFW</text>
+  <text x="284" y="110" class="diagram-caption" fill="#3a5560" font-size="9">RAM-shares TGW out</text>
+
+  <line x1="474" y1="88" x2="490" y2="88" class="diagram-edge" stroke="#7a969e" stroke-width="1.5" marker-end="url(#acc-arrow)"/>
+
+  <rect x="506" y="48" width="212" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="520" y="72" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">hub</text>
+  <text x="520" y="90" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">hub-peering</text>
+  <text x="520" y="110" class="diagram-caption" fill="#3a5560" font-size="9">peering lives here only</text>
+
+  <rect x="756" y="48" width="200" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="770" y="72" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">hub</text>
+  <text x="770" y="92" class="diagram-caption" fill="#3a5560" font-size="9">no peering stack</text>
+
+  <!-- ══ dev row ══════════════════════════════════════════════════════════ -->
+  <rect x="12" y="148" width="238" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#acc-aws-cli" x="28" y="172" width="32" height="32"/>
+  <text x="70" y="186" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">YOUR_DEV_WORKLOAD_PROFILE</text>
+  <text x="70" y="202" class="diagram-caption" fill="#3a5560" font-size="9">dev stacks + SSM on dev hosts</text>
+
+  <line x1="252" y1="188" x2="266" y2="188" class="diagram-edge" stroke="#7a969e" stroke-width="1.5" marker-end="url(#acc-arrow)"/>
+
+  <rect x="270" y="148" width="200" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#acc-grp-account" x="284" y="162" width="14" height="14"/>
+  <text x="304" y="173" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">Dev workload account</text>
+  <text x="284" y="194" class="diagram-caption" fill="#3a5560" font-size="9">dev spoke + demo host</text>
+  <text x="284" y="210" class="diagram-caption" fill="#3a5560" font-size="9">accepts the RAM share</text>
+
+  <line x1="474" y1="188" x2="490" y2="188" class="diagram-edge" stroke="#7a969e" stroke-width="1.5" marker-end="url(#acc-arrow)"/>
+
+  <rect x="506" y="148" width="212" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="520" y="172" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">workload-dev</text>
+  <text x="520" y="192" class="diagram-caption" fill="#3a5560" font-size="9">10.255.1.0/24</text>
+
+  <rect x="756" y="148" width="200" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="770" y="172" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">workload-dev</text>
+  <text x="770" y="192" class="diagram-caption" fill="#3a5560" font-size="9">10.254.1.0/24</text>
+
+  <!-- ══ prod row ═════════════════════════════════════════════════════════ -->
+  <rect x="12" y="248" width="238" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#acc-aws-cli" x="28" y="272" width="32" height="32"/>
+  <text x="70" y="286" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">YOUR_PROD_WORKLOAD_PROFILE</text>
+  <text x="70" y="302" class="diagram-caption" fill="#3a5560" font-size="9">prod stacks + SSM on prod hosts</text>
+
+  <line x1="252" y1="288" x2="266" y2="288" class="diagram-edge" stroke="#7a969e" stroke-width="1.5" marker-end="url(#acc-arrow)"/>
+
+  <rect x="270" y="248" width="200" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#acc-grp-account" x="284" y="262" width="14" height="14"/>
+  <text x="304" y="273" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">Prod workload account</text>
+  <text x="284" y="294" class="diagram-caption" fill="#3a5560" font-size="9">prod spoke + demo host</text>
+  <text x="284" y="310" class="diagram-caption" fill="#3a5560" font-size="9">accepts the RAM share</text>
+
+  <line x1="474" y1="288" x2="490" y2="288" class="diagram-edge" stroke="#7a969e" stroke-width="1.5" marker-end="url(#acc-arrow)"/>
+
+  <rect x="506" y="248" width="212" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="520" y="272" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">workload-prod</text>
+  <text x="520" y="292" class="diagram-caption" fill="#3a5560" font-size="9">10.255.2.0/24</text>
+
+  <rect x="756" y="248" width="200" height="80" rx="10" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="770" y="272" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">workload-prod</text>
+  <text x="770" y="292" class="diagram-caption" fill="#3a5560" font-size="9">10.254.2.0/24</text>
+
+  <!-- ══ prerequisites that bite ══════════════════════════════════════════ -->
+  <use href="#acc-aws-org" x="12" y="344" width="14" height="14"/>
+  <text x="32" y="355" class="diagram-caption" fill="#3a5560" font-size="9">Same Organization: enable RAM resource sharing, or the hub → workload TGW shares fail.</text>
+  <text x="32" y="370" class="diagram-caption" fill="#3a5560" font-size="9">Every profile must reach both Regions — ap-southeast-6 may need Region opt-in first.</text>
+</svg>

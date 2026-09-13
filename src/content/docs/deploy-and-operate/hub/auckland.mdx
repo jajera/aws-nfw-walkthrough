@@ -1,0 +1,149 @@
+---
+title: Auckland
+description: Apply and validate the ap-southeast-6 hub (TGW + inspection VPC — NFW later).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+import hubStack from "@/assets/diagrams/hub-stack-auckland.svg?raw";
+
+<Checklist
+  id="auckland-hub"
+  items={[
+    "Sydney hub already validated",
+    "tfvars: hub profile + both workload account IDs; NFW flags false",
+    "terraform apply succeeded",
+    "Auckland TGW available, ASN 65002",
+    "Inspection VPC + attachment available",
+    "spoke_association = no_inspection; firewall_arn null",
+    "Auckland RAM share ACTIVE",
+  ]}
+/>
+
+## Overview
+
+Same shape as Sydney in Auckland: TGW ASN `65002`, inspection VPC
+`10.254.0.0/24`, dual route tables, RAM to **dev + prod**. **NFW stays off.**
+
+<Diagram
+  src={hubStack}
+  alt="The ap-southeast-6 hub stack, with both firewall flags false, creating a Transit Gateway with ASN 65002, an inspection VPC 10.254.0.0/24 with an available attachment, an ACTIVE RAM share to dev and prod, and two TGW route tables. Network Firewall is faded and dashed because the flags are false."
+  caption="Identical layout to Sydney, only the Region, ASN and CIDR change. Compare against the Sydney diagram rather than re-reading it. Icons from aws-icons."
+/>
+
+## Apply
+
+<Steps>
+
+1. Configure and apply:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-6/hub
+   cp terraform.tfvars.example terraform.tfvars
+   # hub_profile, workload_account_ids = [dev, prod]
+   # enable_network_firewall = false
+   # firewall_rules_enabled  = false
+   terraform init
+   terraform apply
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   AKL_TGW=$(terraform output -raw transit_gateway_id)
+   terraform output -raw transit_gateway_id
+   terraform output -raw inspection_vpc_id
+   terraform output -raw inspection_vpc_cidr
+   terraform output -raw inspection_attachment_id
+   terraform output -raw enable_network_firewall
+   terraform output -raw firewall_rules_enabled
+   terraform output -raw spoke_association_route_table_id
+   terraform output -raw no_inspection_route_table_id
+   terraform output -raw inspection_route_table_id
+   ```
+
+   ```text
+   tgw-04db3776f3a795ce7
+   vpc-0ad3fed6c0393729a
+   10.254.0.0/24
+   tgw-attach-0d4c6c5cb225f6768
+   false
+   false
+   tgw-rtb-0de1397f3982b6434   # spoke_association == no_inspection
+   tgw-rtb-0de1397f3982b6434
+   tgw-rtb-088d989b87ff8da52
+   ```
+
+</Steps>
+
+<Aside type="note">
+  Opt into <code>ap-southeast-6</code> if the apply fails on Region availability.
+</Aside>
+
+## Validate
+
+<Steps>
+
+1. Transit Gateway:
+
+   ```bash frame="terminal"
+   aws ec2 describe-transit-gateways \
+     --region ap-southeast-6 \
+     --transit-gateway-ids "$AKL_TGW" \
+     --query 'TransitGateways[0].{State:State,Asn:Options.AmazonSideAsn}' \
+     --output table
+   ```
+
+   ```text
+   |  Asn   |    State    |
+   |  65002 |  available  |
+   ```
+
+2. Inspection VPC attachment:
+
+   ```bash frame="terminal"
+   ATT=$(terraform output -raw inspection_attachment_id)
+   aws ec2 describe-transit-gateway-vpc-attachments \
+     --region ap-southeast-6 \
+     --transit-gateway-attachment-ids "$ATT" \
+     --query 'TransitGatewayVpcAttachments[0].{Id:TransitGatewayAttachmentId,State:State,Vpc:VpcId}' \
+     --output table
+   ```
+
+   ```text
+   |  tgw-attach-0d4c6c5cb225f6768 |  available |  vpc-0ad3fed6c0393729a |
+   ```
+
+3. NFW not attached:
+
+   ```bash frame="terminal"
+   terraform output -raw enable_network_firewall
+   terraform output -raw firewall_arn
+   ```
+
+   ```text
+   false
+
+   ```
+
+4. RAM share:
+
+   ```bash frame="terminal"
+   aws ram get-resource-shares \
+     --region ap-southeast-6 \
+     --resource-owner SELF \
+     --query 'resourceShares[?contains(name, `nfw-lab`)].[name,status]' \
+     --output table
+   ```
+
+   ```text
+   |  nfw-lab-akl-tgw-share    |  ACTIVE    |
+   ```
+
+</Steps>
+
+## Next
+
+[Validate](/deploy-and-operate/hub/validate/)

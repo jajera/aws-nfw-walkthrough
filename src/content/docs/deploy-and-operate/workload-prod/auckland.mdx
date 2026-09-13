@@ -1,0 +1,93 @@
+---
+title: Auckland
+description: Apply and validate the Auckland prod spoke and demo host (local HTTP + DNS).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="auckland-workload-prod"
+  items={[
+    "Sydney prod already validated locally",
+    "akl-prod apply succeeded",
+    "Spoke attachment available; SSM Online",
+    "Local HTTP (nginx) works",
+    "Local DNS (dnsmasq) works",
+  ]}
+/>
+
+## Overview
+
+Prod spoke `10.254.2.0/24` in `ap-southeast-6`. Same local validation as Sydney
+prod. Auckland omits `ec2messages` by design (post-2024 Regions use
+`ssmmessages` only); spokes set `ssm` + `ssmmessages`.
+
+```text
+environment/sandbox/ap-southeast-6/workload-prod
+  → spoke 10.254.2.0/24 · attach · demo host
+  → validate local only
+```
+
+## Apply
+
+<Steps>
+
+1. Apply:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-6/workload-prod
+   cp terraform.tfvars.example terraform.tfvars
+   terraform init
+   terraform apply
+   ```
+
+   ```text
+   Apply complete! Resources: … added, 0 changed, 0 destroyed.
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_PROD_WORKLOAD_PROFILE
+   AKL_PROD_ID=$(terraform output -raw test_host_instance_id)
+   AKL_PROD_ATT=$(terraform output -raw attachment_id)
+   AKL_PROD_IP=$(terraform output -raw test_host_private_ip)
+   echo "$AKL_PROD_ID $AKL_PROD_ATT $AKL_PROD_IP"
+   ```
+
+   ```text
+   i-072c72766be1110b3 tgw-attach-05443fc9e10463933 10.254.2.22
+   ```
+
+</Steps>
+
+## Validate (local)
+
+<Steps>
+
+1. Attachment `available` and SSM `Online` (same commands as Sydney prod, region
+   `ap-southeast-6`).
+
+2. Local HTTP + dnsmasq:
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-6 \
+     --instance-ids "$AKL_PROD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"curl -sS -m 5 http://127.0.0.1/; systemctl is-active nginx dnsmasq; dig +short @$AKL_PROD_IP lab.demo\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   active
+   active
+   10.254.2.22
+   ```
+
+</Steps>
+
+## Next
+
+[Validate](/deploy-and-operate/workload-prod/validate/)

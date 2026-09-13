@@ -1,0 +1,96 @@
+---
+title: Rule design
+description: Suricata + IP sets for the lab PASS policy — 10 groups, ~130 capacity.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Diagram from "@/components/Diagram.astro";
+import ruleDesignPass from "@/assets/diagrams/rule-design-pass.svg?raw";
+
+## Quotas that matter
+
+Official: [quotas](https://docs.aws.amazon.com/network-firewall/latest/developerguide/quotas.html) ·
+[capacity](https://docs.aws.amazon.com/network-firewall/latest/developerguide/nwfw-rule-group-capacity.html)
+
+| Ceiling | Counts | Lab Allow |
+| ------- | ------ | --------- |
+| **20** stateful groups / policy | Groups attached | **10** PASS |
+| **30,000** capacity / policy | Sum of each group’s reserved `capacity` | **~130** |
+
+Capacity is reserved at group create (immutable). It is **quota**, not price —
+NFW bills endpoint hours + GB processed. Oversizing `capacity` (or one group
+per micro-flow) burns the ceilings without buying anything.
+
+<Aside type="note">
+  East-west PASS here is <strong>stateful Suricata</strong>. Stateless capacity
+  uses a different formula.
+</Aside>
+
+## Pattern: Suricata + IP sets
+
+Cartesian 5-tuples (sources × targets × directions) explode capacity. Suricata
+lines stay fixed; IP sets hold many `/32`s:
+
+```text
+IP set grows  →  same Suricata lines  →  capacity ≈ rule-line count
+```
+
+```terraform
+# Shape used in rules.tf (not live values)
+rules_string = <<-EOT
+  pass tcp $JUMPS any -> $TARGETS 22 (sid:1; rev:1;)
+  pass tcp $TARGETS 22 -> $JUMPS any (sid:2; rev:1;)
+EOT
+```
+
+| Shape | Lab use |
+| ----- | ------- |
+| **Peering** | Both directions + reverse ports (`flow:stateless`) so either hub can match under double-inspect / `CONTINUE` |
+| **Service** | Consumers → tight `/32` destinations + ports |
+| **Dummy** | CIDRs/ports demo hosts are **not** in → probes still drop |
+
+Unmatched traffic hits stateful default **drop**.
+
+## Lab groups
+
+Source of truth: `modules/network-firewall/rules.tf` (identical set on **both**
+hubs when `firewall_rules_enabled=true`).
+
+| Pri | Group | Intent |
+| --- | ----- | ------ |
+| 10 | `peer_dev` | Dev Syd ↔ Akl: ICMP · TCP 80/53 · UDP 53 |
+| 11 | `peer_dev_ssh` | Dummy jumps `.180–.199` only `:22` (demo hosts in `.4–.126` → drop) |
+| 15 | `same_region_demo` | Same-Region dev ↔ prod: ICMP · TCP 80 |
+| 20 | `svc_prod_http` | Prod apps Syd ↔ Akl: TCP 80/443 |
+| 21 | `svc_prod_db` | Prod app → same-Region DB `:5432` |
+| 22 | `svc_prod_dns` | Prod clients → DNS `/32` `:53` |
+| 23 | `svc_prod_metrics` | Monitors → apps `:9100` |
+| 24 | `svc_prod_ldap` | Apps → dummy LDAP `/32` |
+| 25 | `svc_prod_ntp` | Apps → dummy NTP in insp VPC |
+| 30 | `svc_dummy_batch` | Dummy `.150–.179` `:8443` (demo hosts outside → drop) |
+
+```text
+~500 /32s in private-pool IP sets · ~20 Suricata lines · capacity sum ≈ 130 · 10 groups
+5-tuple stress for the same coverage would be thousands of rules
+```
+
+Demo host IPs sit in the private `/25` (`.4–.126`), which the PASS sets cover, so
+`peer_dev`, `same_region_demo`, and `svc_prod_http` succeed after Allow.
+
+<Diagram
+  src={ruleDesignPass}
+  alt="DEV Syd-dev and Akl-dev linked both ways by peer_dev; PROD Syd-prod and Akl-prod linked by svc_prod_http HTTP; footnote for same_region_demo and dummy drops."
+  caption="PASS coverage for the demo hosts. Dummy IP sets are separate groups and still drop from these hosts. Icons from aws-icons."
+/>
+
+## Lab path
+
+| Stage | Flags | Rules in AWS |
+|-------|--------|----------------|
+| Attach (Syd / Akl) | `enable_network_firewall=true`, `firewall_rules_enabled=false` | Firewall + policy, **no** PASS groups |
+| Deny | (after attach, before Allow) | Default drop only |
+| **Allow** | `firewall_rules_enabled=true` | Creates/attaches the 10 PASS groups |
+
+## Next
+
+[Sydney](/deploy-and-operate/nfw/sydney/)

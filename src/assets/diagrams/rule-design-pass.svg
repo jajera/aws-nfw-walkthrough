@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 248" width="100%" role="img"
+     aria-label="Lab PASS intent: peer_dev allows Syd-dev and Akl-dev both ways; svc_prod_http allows Syd-prod and Akl-prod HTTP; same_region_demo covers same-Region dev to prod; dummy IP sets still drop"
+     font-family="Manrope, Open Sans, Segoe UI, sans-serif">
+  <title>Rule design · which spokes PASS covers</title>
+  <desc>Two panels. Left: DEV Syd-dev and Akl-dev with a bidirectional peer_dev path. Right: PROD Syd-prod and Akl-prod with bidirectional HTTP for svc_prod_http. Footnote notes same_region_demo for same-Region traffic and that dummy IP sets still drop from real hosts.</desc>
+
+<!--
+  Icons are official AWS Architecture Icons, inlined as <symbol> from
+  https://jajera.github.io/aws-icons/ (browse, copy, strip the Sketch id=""
+  attributes so ids stay unique in the page).
+  Colours come from the .diagram-* classes in src/styles/splash-overrides.css:
+  presentation attributes here are the light palette, the CSS overrides dark.
+-->
+  <defs>
+    <marker id="rd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" class="diagram-edge-fill" fill="#7a969e"/>
+    </marker>
+    <symbol id="rd-aws-ec2" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#ED7100">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <path d="M27,53 L52,53 L52,28 L27,28 L27,53 Z M54,28 L58,28 L58,30 L54,30 L54,34 L58,34 L58,36 L54,36 L54,39 L58,39 L58,41 L54,41 L54,45 L58,45 L58,47 L54,47 L54,51 L58,51 L58,53 L54,53 L54,53.136 C54,54.164 53.164,55 52.136,55 L52,55 L52,59 L50,59 L50,55 L46,55 L46,59 L44,59 L44,55 L41,55 L41,59 L39,59 L39,55 L35,55 L35,59 L33,59 L33,55 L29,55 L29,59 L27,59 L27,55 L26.864,55 C25.836,55 25,54.164 25,53.136 L25,53 L22,53 L22,51 L25,51 L25,47 L22,47 L22,45 L25,45 L25,41 L22,41 L22,39 L25,39 L25,36 L22,36 L22,34 L25,34 L25,30 L22,30 L22,28 L25,28 L25,27.864 C25,26.836 25.836,26 26.864,26 L27,26 L27,22 L29,22 L29,26 L33,26 L33,22 L35,22 L35,26 L39,26 L39,22 L41,22 L41,26 L44,26 L44,22 L46,22 L46,26 L50,26 L50,22 L52,22 L52,26 L52.136,26 C53.164,26 54,26.836 54,27.864 L54,28 Z M41,65.876 C41,65.944 40.944,66 40.876,66 L14.124,66 C14.056,66 14,65.944 14,65.876 L14,39.124 C14,39.056 14.056,39 14.124,39 L20,39 L20,37 L14.124,37 C12.953,37 12,37.953 12,39.124 L12,65.876 C12,67.047 12.953,68 14.124,68 L40.876,68 C42.047,68 43,67.047 43,65.876 L43,61 L41,61 L41,65.876 Z M68,14.124 L68,40.876 C68,42.047 67.047,43 65.876,43 L60,43 L60,41 L65.876,41 C65.944,41 66,40.944 66,40.876 L66,14.124 C66,14.056 65.944,14 65.876,14 L39.124,14 C39.056,14 39,14.056 39,14.124 L39,20 L37,20 L37,14.124 C37,12.953 37.953,12 39.124,12 L65.876,12 C67.047,12 68,12.953 68,14.124 L68,14.124 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="rd-grp-region" viewBox="0 0 40 40">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <rect fill="#00A4A6" x="0" y="0" width="40" height="40"></rect>
+      <path d="M14,20.026 L14,11.026 L29.293,11.026 L25.146,15.172 C24.951,15.368 24.951,15.684 25.146,15.88 L29.293,20.026 L14,20.026 Z M26.207,15.526 L30.854,10.88 C30.996,10.736 31.039,10.522 30.962,10.335 C30.885,10.148 30.702,10.026 30.5,10.026 L14,10.026 L14,8.97 C14.596,8.76 15.026,8.198 15.026,7.531 C15.026,6.687 14.34,6 13.495,6 C12.65,6 11.963,6.687 11.963,7.531 C11.963,8.201 12.398,8.766 13,8.973 L13,33.026 L10,33.026 L10,34.026 L17,34.026 L17,33.026 L14,33.026 L14,21.026 L30.5,21.026 C30.702,21.026 30.885,20.904 30.962,20.717 C31.039,20.53 30.996,20.316 30.854,20.172 L26.207,15.526 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+  </defs>
+
+  <!-- DEV panel -->
+  <rect x="12" y="14" width="468" height="168" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#rd-grp-region" x="26" y="22" width="14" height="14"/>
+  <text x="46" y="33" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">DEV · peer_dev (both ways)</text>
+  <text x="466" y="33" text-anchor="end" class="diagram-caption" fill="#3a5560" font-size="9">ICMP · TCP 80/53 · UDP 53</text>
+
+  <use href="#rd-aws-ec2" x="78" y="68" width="40" height="40"/>
+  <text x="98" y="128" text-anchor="middle" class="diagram-label" fill="#1a3844" font-size="10">Syd-dev</text>
+  <text x="98" y="141" text-anchor="middle" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.255.1.0/24</text>
+
+  <g class="diagram-edge" stroke="#7a969e" stroke-width="1.5">
+    <line x1="132" y1="88" x2="348" y2="88" marker-start="url(#rd-arrow)" marker-end="url(#rd-arrow)"/>
+  </g>
+  <text x="240" y="78" text-anchor="middle" class="diagram-allow-tag" fill="#067647" font-size="9" font-weight="600">PASS</text>
+
+  <use href="#rd-aws-ec2" x="362" y="68" width="40" height="40"/>
+  <text x="382" y="128" text-anchor="middle" class="diagram-label" fill="#1a3844" font-size="10">Akl-dev</text>
+  <text x="382" y="141" text-anchor="middle" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.254.1.0/24</text>
+
+  <!-- PROD panel -->
+  <rect x="500" y="14" width="468" height="168" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#rd-grp-region" x="514" y="22" width="14" height="14"/>
+  <text x="534" y="33" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">PROD · svc_prod_http</text>
+  <text x="954" y="33" text-anchor="end" class="diagram-caption" fill="#3a5560" font-size="9">TCP 80/443 · /32 apps</text>
+
+  <use href="#rd-aws-ec2" x="566" y="68" width="40" height="40"/>
+  <text x="586" y="128" text-anchor="middle" class="diagram-label" fill="#1a3844" font-size="10">Syd-prod</text>
+  <text x="586" y="141" text-anchor="middle" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">apps /32</text>
+
+  <g class="diagram-edge" stroke="#7a969e" stroke-width="1.5">
+    <line x1="620" y1="88" x2="836" y2="88" marker-start="url(#rd-arrow)" marker-end="url(#rd-arrow)"/>
+  </g>
+  <text x="728" y="78" text-anchor="middle" class="diagram-allow-tag" fill="#067647" font-size="9" font-weight="600">PASS</text>
+
+  <use href="#rd-aws-ec2" x="850" y="68" width="40" height="40"/>
+  <text x="870" y="128" text-anchor="middle" class="diagram-label" fill="#1a3844" font-size="10">Akl-prod</text>
+  <text x="870" y="141" text-anchor="middle" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">apps /32</text>
+
+  <text x="12" y="208" class="diagram-caption" fill="#3a5560" font-size="9">same-Region: Syd-dev · Syd-prod · Akl-dev · Akl-prod via same_region_demo (ICMP · TCP 80)</text>
+  <text x="12" y="224" class="diagram-caption" fill="#3a5560" font-size="9">No whole-CIDR open · dummy groups (SSH jumps, LDAP, NTP, batch) · still drop from real demo hosts</text>
+</svg>

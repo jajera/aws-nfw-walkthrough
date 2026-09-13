@@ -1,0 +1,37 @@
+---
+title: Troubleshooting
+description: Common apply and connectivity failures.
+---
+
+## Apply
+
+| Symptom | Check |
+| ------- | ----- |
+| RAM share / attachment stuck | Org sharing enabled; hub accepted the attachment |
+| `ec2messages` VPCE error in Auckland | Not offered in post-2024 Regions; Akl spokes use `ssm` + `ssmmessages` only |
+| Peering pending long | Wait; accepter can take several minutes |
+| Remote state missing | Hubs → workloads → peering |
+| Prod DNS null | `enable_prod_workloads=true` after both workload-prod stacks |
+
+## Connectivity
+
+| Symptom | Check |
+| ------- | ----- |
+| SSM not ready | Instance profile, SSM endpoints (or NAT), wait for agent |
+| Short name fails, FQDN works | DHCP search domain `lab.demo` / renew lease |
+| Ping/HTTP fail after peering (NFW off) | Static remote routes on `no_inspection`; SGs; DHCP |
+| Fail after NFW attach (Deny) | Expected until Allow — alert `blocked` / `drop` |
+| Fail after Allow for Syd-dev → Syd-prod | `same_region_demo` PASS group and live host `/32` coverage |
+| nginx empty | `user_data` still installing; retry in a few minutes |
+
+## Double-inspect
+
+| Symptom | Check |
+| ------- | ----- |
+| Cross-Region on **only one** hub | Peer not on inspection RT on both hubs |
+| Cross-Region blackhole | Peer association / remote spoke CIDR on `no_inspection`; PASS rules both ways; `stream_exception_policy=CONTINUE` |
+| Passes one way only | Missing reverse-direction PASS (and reverse ports where used) |
+| TCP dies after handshake | `stream_exception_policy` must stay `CONTINUE` |
+| Same-Region dev ↔ prod skips NFW | Spoke association still on `no_inspection`, or NFW not attached |
+
+See [NFW → Validate](/deploy-and-operate/nfw/validate/).

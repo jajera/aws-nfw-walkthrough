@@ -1,0 +1,58 @@
+---
+title: Inspection model
+description: Double-inspect for cross-Region, and local inspection inside a Region.
+---
+
+import Tooltip from "@/components/Tooltip.astro";
+import Diagram from "@/components/Diagram.astro";
+import sameRegion from "@/assets/diagrams/inspection-same-region.svg?raw";
+import crossRegion from "@/assets/diagrams/inspection-cross-region.svg?raw";
+
+## Overview
+
+This lab ships **double-inspect** for cross-Region east-west traffic.
+
+| Flow | Inspected by | Sees both directions? |
+| ---- | ------------ | --------------------- |
+| Same Region, spoke ↔ spoke (dev ↔ prod, different accounts) | **Local** hub NFW | **Yes** — one firewall, full state |
+| Cross Region | **Both** hub NFWs (source and destination) | Each hub sees the hop through that Region |
+
+Before NFW exists, spokes and the peer associate to **no_inspection** and
+nothing is inspected — that is the plain TGW mesh stage.
+
+## Same Region
+
+<Diagram
+  src={sameRegion}
+  alt="Inside ap-southeast-2: the dev spoke hairpins through the Transit Gateway on its inspection route table to the Sydney Network Firewall, then out via no_inspection to the prod spoke. Every arrow is bidirectional because the return direction takes the identical path."
+  caption="Bidirectional arrows on purpose: one firewall evaluates both halves of the session, so state is complete. Icons from aws-icons."
+/>
+
+Cross-account inside a Region is the common case for dev ↔ prod here, and it
+keeps full stateful inspection because one firewall handles both directions.
+
+## Cross Region
+
+<Diagram
+  src={crossRegion}
+  alt="Two lanes over Sydney and Auckland Region bands. The upper lane runs syd-dev, syd TGW on inspection RT, syd NFW, peer, akl TGW on inspection RT, akl NFW, then akl-dev via no_inspection. The lower lane is the mirror for akl-dev to syd-dev. Both firewall chips are highlighted in each lane."
+  caption="Two highlighted firewalls per lane, in both directions — that is what double-inspect means here. Icons from aws-icons."
+/>
+
+Once NFW is on in both hubs, `hub-peering` associates the peering attachment to
+each hub's **inspection** RT. Egress follows `0.0.0.0/0` through the local
+firewall before crossing the peer. Same-Region destinations still hairpin
+locally the same way.
+
+Expect flow logs on **both** hubs for a successful cross-Region probe.
+
+## Policy settings that still matter
+
+| Setting | Why |
+| ------- | --- |
+| `stream_exception_policy = "CONTINUE"` | Keeps evaluating midstream / return packets instead of treating them as broken streams |
+| PASS rules written **both ways** (plus reverse ports, `flow:stateless`) | Each hub can match the direction it sees on a double-inspect hop |
+
+See [Traffic path](/concepts/traffic-path/) for the hop-by-hop route table
+decisions, and [NFW → Validate](/deploy-and-operate/nfw/validate/) to prove it
+in <Tooltip term="nfw" label="Network Firewall" /> flow logs.

@@ -1,0 +1,159 @@
+---
+title: Sydney
+description: Attach Sydney Network Firewall with deny policy (no PASS rules yet).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="nfw-sydney-attach"
+  items={[
+    "Prove mesh already passed",
+    "Syd hub: enable_network_firewall=true, firewall_rules_enabled=false",
+    "Syd NFW READY; hairpin 0.0.0.0/0 → vpce",
+    "Stateful PASS references null on Syd policy",
+    "Syd-dev and Syd-prod associations = inspection RT",
+  ]}
+/>
+
+## Overview
+
+Attach NFW **after** [Prove mesh](/deploy-and-operate/prove/) and
+[Rule design](/deploy-and-operate/nfw/rule-design/). Suricata PASS groups stay
+off (`firewall_rules_enabled=false`) until Allow.
+
+```text
+enable_network_firewall = true
+firewall_rules_enabled  = false
+```
+
+Put both in `environment/sandbox/ap-southeast-2/hub/terraform.tfvars`, then
+full `terraform apply` (not `-target`).
+
+## Apply
+
+<Steps>
+
+1. Apply Syd hub:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/hub
+   terraform apply
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   terraform output -raw enable_network_firewall
+   terraform output -raw firewall_rules_enabled
+   terraform output -raw firewall_arn
+   terraform output -raw spoke_association_route_table_id
+   terraform output -raw inspection_route_table_id
+   terraform output -raw no_inspection_route_table_id
+   terraform output -json firewall_endpoint_ids
+   ```
+
+   ```text
+   true
+   false
+   arn:aws:network-firewall:ap-southeast-2:241533147323:firewall/nfw-lab-syd
+   tgw-rtb-09996f46ffff7d5c6
+   tgw-rtb-09996f46ffff7d5c6
+   tgw-rtb-00be3893a2741a265
+   {
+     "ap-southeast-2a": "vpce-03621280b0139ea5d"
+   }
+   ```
+
+   `spoke_association_route_table_id` must equal `inspection_route_table_id`,
+   not `no_inspection_route_table_id`.
+
+3. Firewall READY:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   FW=$(terraform output -raw firewall_arn)
+   aws network-firewall describe-firewall --region ap-southeast-2 \
+     --firewall-arn "$FW" --query 'FirewallStatus.Status' --output text
+   ```
+
+   ```text
+   READY
+   ```
+
+4. Hairpin: TGW subnet default route → NFW endpoint:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   EP=$(terraform output -json firewall_endpoint_ids | jq -r 'to_entries[0].value')
+   aws ec2 describe-route-tables --region ap-southeast-2 \
+     --filters "Name=tag:Name,Values=*insp-tgw-rt" \
+     --query "RouteTables[].Routes[?VpcEndpointId=='$EP'].[DestinationCidrBlock,VpcEndpointId]" \
+     --output text
+   ```
+
+   ```text
+   0.0.0.0/0	vpce-03621280b0139ea5d
+   ```
+
+5. No stateful PASS groups on the policy:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   FW=$(terraform output -raw firewall_arn)
+   POL=$(aws network-firewall describe-firewall --region ap-southeast-2 \
+     --firewall-arn "$FW" --query Firewall.FirewallPolicyArn --output text)
+   aws network-firewall describe-firewall-policy --region ap-southeast-2 \
+     --firewall-policy-arn "$POL" \
+     --query 'FirewallPolicy.StatefulRuleGroupReferences' --output json
+   ```
+
+   ```text
+   null
+   ```
+
+6. Move Syd spokes onto the inspection RT:
+
+   ```bash frame="terminal"
+   cd ../workload-dev && terraform apply
+   cd ../workload-prod && terraform apply
+   ```
+
+7. Confirm both spoke associations:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   INSP=$(cd ../hub && terraform output -raw inspection_route_table_id)
+   DEV=$(cd ../workload-dev && terraform output -raw attachment_id)
+   PROD=$(cd ../workload-prod && terraform output -raw attachment_id)
+
+   DEV_ASSOC=$(aws ec2 describe-transit-gateway-attachments --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$DEV" \
+     --query 'TransitGatewayAttachments[0].Association.TransitGatewayRouteTableId' \
+     --output text)
+   PROD_ASSOC=$(aws ec2 describe-transit-gateway-attachments --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$PROD" \
+     --query 'TransitGatewayAttachments[0].Association.TransitGatewayRouteTableId' \
+     --output text)
+
+   echo "dev=$DEV_ASSOC insp=$INSP"
+   echo "prod=$PROD_ASSOC insp=$INSP"
+   ```
+
+   ```text
+   dev=tgw-rtb-09996f46ffff7d5c6 insp=tgw-rtb-09996f46ffff7d5c6
+   prod=tgw-rtb-09996f46ffff7d5c6 insp=tgw-rtb-09996f46ffff7d5c6
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Leave hub-peering alone until Auckland finishes the same attach. Deny only
+  holds after both hubs have NFW and peering is re-applied.
+</Aside>
+
+## Next
+
+[Auckland](/deploy-and-operate/nfw/auckland/)

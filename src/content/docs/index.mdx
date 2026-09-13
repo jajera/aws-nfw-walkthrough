@@ -1,0 +1,88 @@
+---
+title: AWS NFW Walkthrough
+description: Dual-hub Transit Gateway and Network Firewall across Sydney and Auckland — cross-Region traffic double-inspected on both hubs.
+template: splash
+hero:
+  tagline: Build the Sydney–Auckland TGW mesh first, prove connectivity, then attach Network Firewall (deny → allow) with cross-Region traffic double-inspected on both hubs.
+  actions:
+    - text: Get Started
+      link: /concepts/architecture/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/jajera/aws-nfw-lab
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid, Aside } from "@astrojs/starlight/components";
+import Tooltip from "@/components/Tooltip.astro";
+import Diagram from "@/components/Diagram.astro";
+import topology from "@/assets/diagrams/home-topology.svg?raw";
+
+## Why this lab
+
+Dual-hub designs put a <Tooltip term="tgw" label="Transit Gateway" /> and
+<Tooltip term="nfw" label="Network Firewall" /> in each Region. This walkthrough
+drives the disposable Terraform lab
+[`jajera/aws-nfw-lab`](https://github.com/jajera/aws-nfw-lab).
+
+| Focus | What you prove |
+| ----- | -------------- |
+| Cross-Region | <Tooltip term="double-inspect" label="Double-inspect" /> — **both** hubs see the flow |
+| Same-Region | One local NFW hairpin (e.g. Syd-dev ↔ Syd-prod) |
+| Mesh first | TGW + spokes + peering, prove before NFW |
+| Then NFW | Attach deny → allow; read flow logs to prove where |
+
+What you build:
+
+- Greenfield inspection + spoke VPCs (dev and prod) in Sydney and Auckland
+- Demo hosts with HTTP and DNS; private zone `lab.demo`
+- Hub-to-hub TGW peering; workloads attach only via RAM to their regional hub
+
+<Diagram
+  src={topology}
+  alt="Sydney and Auckland Regions side by side. Each has a hub with a Transit Gateway and an inspection VPC containing Network Firewall, RAM-shared to a dev and a prod spoke with their CIDRs, and the hubs are joined by TGW peering. A band below states the two rules: cross-Region traffic is inspected in both hubs, same-Region traffic is inspected once by the local firewall in both directions."
+  caption="Where traffic gets inspected is the whole point of the lab — the band at the bottom is what the walkthrough proves. Icons from aws-icons."
+/>
+
+## What you will do
+
+<CardGrid>
+  <Card title="Hubs" icon="rocket">
+    Sydney → Auckland → Validate, then the same for Workloads.
+  </Card>
+  <Card title="Workloads" icon="seti:folder">
+    Attach each spoke and demo host; validate both before peering.
+  </Card>
+  <Card title="Peer and prove" icon="approve-check">
+    Hub peering, <code>lab.demo</code> DNS, then ping / curl / dig across Regions.
+  </Card>
+  <Card title="Prove where" icon="setting">
+    Read flow logs to confirm cross-Region traffic hits <strong>both</strong> hubs.
+  </Card>
+</CardGrid>
+
+| Expectation | Notes |
+| ----------- | ----- |
+| Own VPCs | Lab creates all four VPCs; nothing reused from the account |
+| Cross-Region path | TGW peering; workloads never attach to the remote hub |
+| Cost while running | TGW attachments + NFW endpoints + NAT (spokes) bill hourly |
+
+<Aside type="caution">
+  This lab costs money until you tear it down. Prefer 1 AZ and destroy when idle.
+</Aside>
+
+## Read in this order
+
+1. [Architecture](/concepts/architecture/)
+2. [Inspection model](/concepts/inspection-model/)
+3. [Traffic path](/concepts/traffic-path/)
+4. [Demo roles](/concepts/demo-roles/)
+5. [Deploy and operate](/deploy-and-operate/prerequisites/)
+
+## References
+
+- [AWS Network Firewall](https://docs.aws.amazon.com/network-firewall/latest/developerguide/what-is-aws-network-firewall.html)
+- [Transit Gateway peering](https://docs.aws.amazon.com/vpc/latest/tgw/tgw-peering.html)
+- [Lab repository](https://github.com/jajera/aws-nfw-lab)

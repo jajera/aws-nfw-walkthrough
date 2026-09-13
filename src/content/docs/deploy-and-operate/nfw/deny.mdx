@@ -1,0 +1,135 @@
+---
+title: Deny
+description: Prove inter-Region and same-Region traffic fails with NFW and no PASS rules.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="nfw-deny"
+  items={[
+    "Both hubs: enable_network_firewall=true, firewall_rules_enabled=false",
+    "Spokes and peer on inspection RTs",
+    "Stateful PASS references null on both policies",
+    "Syd-dev → Akl-dev: 100% ICMP loss and CURL_FAIL",
+    "Syd-dev → Syd-prod: 100% ICMP loss",
+    "Syd alert log shows action=blocked / verdict=drop",
+  ]}
+/>
+
+## Overview
+
+NFW is in path. Stateful default is drop; `rules.tf` PASS groups are not
+attached. Traffic that worked in [Prove mesh](/deploy-and-operate/prove/) must
+fail.
+
+```text
+stateless → forward to stateful engine
+stateful  → aws:drop_established (+ alert)
+StatefulRuleGroupReferences = null
+```
+
+Hosts (refresh from `terraform output` if recreated):
+
+| Host | Instance | Private IP |
+|------|----------|------------|
+| syd-dev | `i-09c779c39f05e1547` | `10.255.1.58` |
+| akl-dev | `i-02f5d7b615f99cfa2` | `10.254.1.31` |
+| syd-prod | `i-01780abcba294ad2f` | `10.255.2.69` |
+
+## Observe
+
+<Steps>
+
+1. Control plane (hub profile):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   terraform -chdir=environment/sandbox/ap-southeast-2/hub output -raw enable_network_firewall
+   terraform -chdir=environment/sandbox/ap-southeast-2/hub output -raw firewall_rules_enabled
+   terraform -chdir=environment/sandbox/ap-southeast-6/hub output -raw enable_network_firewall
+   terraform -chdir=environment/sandbox/ap-southeast-6/hub output -raw firewall_rules_enabled
+   ```
+
+   ```text
+   true
+   false
+   true
+   false
+   ```
+
+2. Deny probes from Syd-dev (dev **workload** profile):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   SYD_ID=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_instance_id)
+   AKL_IP=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_private_ip)
+   SYD_PROD_IP=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_private_ip)
+
+   CMD=$(aws ssm send-command --region ap-southeast-2 --instance-ids "$SYD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"echo AKL; ping -c3 -W2 $AKL_IP; echo ---; curl -sS -m 5 http://$AKL_IP/ || echo CURL_FAIL; echo ---; echo SYD_PROD; ping -c3 -W2 $SYD_PROD_IP\"]" \
+     --query 'Command.CommandId' --output text)
+
+   sleep 15
+   aws ssm get-command-invocation --region ap-southeast-2 \
+     --command-id "$CMD" --instance-id "$SYD_ID" \
+     --query 'StandardOutputContent' --output text
+   ```
+
+   ```text
+   AKL
+   PING 10.254.1.31 (10.254.1.31) 56(84) bytes of data.
+
+   --- 10.254.1.31 ping statistics ---
+   3 packets transmitted, 0 received, 100% packet loss, time 2042ms
+
+   ---
+   CURL_FAIL
+   ---
+   SYD_PROD
+   PING 10.255.2.69 (10.255.2.69) 56(84) bytes of data.
+
+   --- 10.255.2.69 ping statistics ---
+   3 packets transmitted, 0 received, 100% packet loss, time 2109ms
+   ```
+
+   SSM `Status` is often `Failed` because ping exits non-zero. Read
+   `StandardOutputContent`, not Status.
+
+3. Alert log (hub profile; wait 1–2 minutes after probes if empty):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   SYD_ALERT=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -raw alert_log_group_name)
+   aws logs filter-log-events --region ap-southeast-2 \
+     --log-group-name "$SYD_ALERT" --limit 1 \
+     --query 'events[0].message' --output text \
+     | jq -c '{
+         firewall: .firewall_name,
+         src: .event.src_ip,
+         dest: .event.dest_ip,
+         proto: .event.proto,
+         action: .event.alert.action,
+         verdict: .event.verdict.action
+       }'
+   ```
+
+   ```text
+   {"firewall":"nfw-lab-syd","src":"10.255.1.58","dest":"10.254.1.31","proto":"ICMP","action":"blocked","verdict":"drop"}
+   ```
+
+   Syd-prod deny shows the same shape with `"dest":"10.255.2.69"`.
+
+</Steps>
+
+<Aside type="tip">
+  Do not change routes here. Next is Allow:
+  <code>firewall_rules_enabled=true</code> on both hubs, then the same probes
+  succeed.
+</Aside>
+
+## Next
+
+[Allow](/deploy-and-operate/nfw/allow/)

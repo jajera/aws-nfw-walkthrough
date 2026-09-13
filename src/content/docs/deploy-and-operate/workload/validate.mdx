@@ -1,0 +1,121 @@
+---
+title: Validate
+description: Confirm both spokes are healthy locally before hub peering.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="workloads-validate"
+  items={[
+    "Sydney local HTTP + DNS already passed",
+    "Auckland local HTTP + DNS already passed",
+    "Both attachments available; both SSM Online",
+    "Ready for Workloads (prod) or hub peering",
+  ]}
+/>
+
+## Overview
+
+Joint gate after each Region’s **dev** local checks. You should have nginx +
+dnsmasq working on both **dev** hosts. Next either add
+[Workloads (prod)](/deploy-and-operate/workload-prod/sydney/) or continue to
+[Hub peering](/deploy-and-operate/hub-peering/sydney/) (you can peer with
+dev-only first, then enable prod later).
+
+```text
+  Workloads (dev) Sydney  → local HTTP + DNS
+  Workloads (dev) Auckland → local HTTP + DNS
+            → Workloads (dev) Validate (here)
+            → Workloads (prod) …  and/or  Hub peering → Prove mesh
+```
+
+## Compare
+
+<Steps>
+
+1. Side-by-side outputs:
+
+   ```bash frame="terminal"
+   ( cd environment/sandbox/ap-southeast-2/workload-dev && \
+     echo "=== Sydney ===" && terraform output -raw vpc_cidr && \
+     terraform output -raw test_host_private_ip && \
+     terraform output -raw test_host_instance_id )
+   ( cd environment/sandbox/ap-southeast-6/workload-dev && \
+     echo "=== Auckland ===" && terraform output -raw vpc_cidr && \
+     terraform output -raw test_host_private_ip && \
+     terraform output -raw test_host_instance_id )
+   ```
+
+   ```text
+   === Sydney ===
+   10.255.1.0/24
+   10.255.1.58
+   i-09c779c39f05e1547
+   === Auckland ===
+   10.254.1.0/24
+   10.254.1.31
+   i-02f5d7b615f99cfa2
+   ```
+
+2. Re-check SSM Online on both:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_WORKLOAD_PROFILE
+   SYD_ID=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_instance_id)
+   AKL_ID=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_instance_id)
+
+   aws ssm describe-instance-information --region ap-southeast-2 \
+     --filters "Key=InstanceIds,Values=$SYD_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+
+   aws ssm describe-instance-information --region ap-southeast-6 \
+     --filters "Key=InstanceIds,Values=$AKL_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+   ```
+
+   ```text
+   Online
+   Online
+   ```
+
+3. Spot re-check local services still up (optional):
+
+   ```bash frame="terminal"
+   SYD_IP=10.255.1.58
+   AKL_IP=10.254.1.31
+
+   aws ssm send-command --region ap-southeast-2 --instance-ids "$SYD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"systemctl is-active nginx dnsmasq; dig +short @$SYD_IP lab.demo\"]" \
+     --query 'Command.CommandId' --output text
+
+   aws ssm send-command --region ap-southeast-6 --instance-ids "$AKL_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"systemctl is-active nginx dnsmasq; dig +short @$AKL_IP lab.demo\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   active
+   active
+   10.255.1.58
+
+   active
+   active
+   10.254.1.31
+   ```
+
+</Steps>
+
+<Aside type="note">
+  Inter-Region <code>curl http://akl-dev.lab.demo/</code> and
+  <code>dig @&lt;peer-ip&gt; lab.demo</code> come after peering publishes
+  Route 53 names and opens the TGW path — see Prove.
+</Aside>
+
+## Next
+
+[Workloads (prod) → Sydney](/deploy-and-operate/workload-prod/sydney/)
+(or skip ahead to [Hub peering → Sydney](/deploy-and-operate/hub-peering/sydney/))

@@ -1,0 +1,127 @@
+---
+title: Prove mesh
+description: Inter-Region connectivity before Network Firewall is in the path.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="prove-mesh"
+  items={[
+    "Hub peering Validate already passed (enable_prod_workloads=true)",
+    "Both hubs: enable_network_firewall=false",
+    "Dev Syd ↔ Akl ping / HTTP / DNS works",
+    "Prod Syd ↔ Akl (and Syd-dev ↔ Syd-prod) works",
+    "Ready to attach Network Firewall (expect deny next)",
+  ]}
+/>
+
+## Overview
+
+Prerequisite mesh: hubs, spokes (dev + prod), peering, `lab.demo`. Traffic must
+work **without** NFW (spokes and peer on **no_inspection**).
+
+Prefer **ping / curl / dig** over traceroute.
+
+```text
+Hub peering Validate  = peer / routes / DNS (control plane)
+Prove mesh (here)     = Syd ↔ Akl *without* NFW
+NFW chapter           = Rule design → attach → deny → allow → validate
+```
+
+Confirm NFW still off:
+
+```bash frame="terminal"
+terraform -chdir=environment/sandbox/ap-southeast-2/hub output -raw enable_network_firewall
+terraform -chdir=environment/sandbox/ap-southeast-6/hub output -raw enable_network_firewall
+```
+
+```text
+false
+false
+```
+
+Live lab IPs (refresh from `terraform output` if recreated):
+
+| Host | Instance | Private IP |
+|------|----------|------------|
+| syd-dev | `i-09c779c39f05e1547` | `10.255.1.58` |
+| akl-dev | `i-02f5d7b615f99cfa2` | `10.254.1.31` |
+| syd-prod | `i-01780abcba294ad2f` | `10.255.2.69` |
+| akl-prod | `i-072c72766be1110b3` | `10.254.2.22` |
+
+Set once:
+
+```bash frame="terminal"
+export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+SYD_DEV_ID=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_instance_id)
+AKL_DEV_ID=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_instance_id)
+SYD_DEV_IP=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_private_ip)
+AKL_DEV_IP=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_private_ip)
+
+export AWS_PROFILE=YOUR_PROD_WORKLOAD_PROFILE
+SYD_PROD_ID=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_instance_id)
+AKL_PROD_ID=$(cd environment/sandbox/ap-southeast-6/workload-prod && terraform output -raw test_host_instance_id)
+SYD_PROD_IP=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_private_ip)
+AKL_PROD_IP=$(cd environment/sandbox/ap-southeast-6/workload-prod && terraform output -raw test_host_private_ip)
+```
+
+## Syd-dev → others
+
+<Steps>
+
+1. Ping, HTTP, Route 53, peer dnsmasq (dev profile):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   CMD=$(aws ssm send-command --region ap-southeast-2 --instance-ids "$SYD_DEV_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"ping -c2 $AKL_DEV_IP; ping -c2 $SYD_PROD_IP; ping -c2 $AKL_PROD_IP; curl -sS -m 5 http://akl-dev.lab.demo/; curl -sS -m 5 http://syd-prod.lab.demo/; curl -sS -m 5 http://akl-prod.lab.demo/; dig +short akl-dev.lab.demo; dig +short syd-prod.lab.demo; dig +short akl-prod.lab.demo; dig +short @$AKL_DEV_IP lab.demo\"]" \
+     --query 'Command.CommandId' --output text)
+   sleep 15
+   aws ssm get-command-invocation --region ap-southeast-2 \
+     --command-id "$CMD" --instance-id "$SYD_DEV_ID" \
+     --query 'StandardOutputContent' --output text
+   ```
+
+   Expect: 0% ICMP loss; demo HTML; DNS
+   `10.254.1.31` / `10.255.2.69` / `10.254.2.22`; peer dig → `10.254.1.31`.
+
+   Same-Region **Syd-dev → Syd-prod** works here (mesh, no NFW). After Allow it
+   still works via `same_region_demo` — prove that under
+   [Allow](/deploy-and-operate/nfw/allow/) and [Validate](/deploy-and-operate/nfw/validate/).
+
+</Steps>
+
+## Akl-prod → others
+
+<Steps>
+
+1. Mirror from Auckland prod (prod profile):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_PROD_WORKLOAD_PROFILE
+   CMD=$(aws ssm send-command --region ap-southeast-6 --instance-ids "$AKL_PROD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"ping -c2 $SYD_DEV_IP; ping -c2 $AKL_DEV_IP; ping -c2 $SYD_PROD_IP; curl -sS -m 5 http://syd-dev.lab.demo/; dig +short syd-dev.lab.demo; dig +short akl-prod.lab.demo\"]" \
+     --query 'Command.CommandId' --output text)
+   sleep 15
+   aws ssm get-command-invocation --region ap-southeast-6 \
+     --command-id "$CMD" --instance-id "$AKL_PROD_ID" \
+     --query 'StandardOutputContent' --output text
+   ```
+
+   Expect: ICMP + HTML; `syd-dev.lab.demo` → `10.255.1.58`;
+   `akl-prod.lab.demo` → `10.254.2.22`.
+
+</Steps>
+
+<Aside type="caution">
+  If this fails, fix routing/DNS before attaching NFW. Deny must be clearly the
+  firewall, not a broken mesh.
+</Aside>
+
+## Next
+
+[Rule design](/deploy-and-operate/nfw/rule-design/)

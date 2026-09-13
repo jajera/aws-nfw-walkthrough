@@ -1,0 +1,135 @@
+---
+title: Sydney
+description: Apply and validate the Sydney prod spoke and demo host (local HTTP + DNS).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="sydney-workload-prod"
+  items={[
+    "Hubs include prod account in workload_account_ids / RAM",
+    "syd-prod apply succeeded",
+    "Spoke attachment available; SSM Online",
+    "Local HTTP (nginx) works",
+    "Local DNS (dnsmasq) works",
+  ]}
+/>
+
+## Overview
+
+Prod spoke `10.255.2.0/24` in the **prod** workload account, TGW attach to
+`syd-hub`, demo EC2 with nginx + dnsmasq. Same local checks as
+[Workloads (dev) → Sydney](/deploy-and-operate/workload/sydney/).
+
+Apply after hubs share the TGW with the prod account. Inter-Region / cross-account
+mesh checks wait for hub-peering with `enable_prod_workloads=true`.
+
+```text
+environment/sandbox/ap-southeast-2/workload-prod
+  → spoke 10.255.2.0/24 · attach · demo host
+  → validate local only
+```
+
+## Apply
+
+<Steps>
+
+1. Apply:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/workload-prod
+   cp terraform.tfvars.example terraform.tfvars   # prod workload + hub profiles
+   terraform init
+   terraform apply
+   ```
+
+   ```text
+   Apply complete! Resources: … added, 0 changed, 0 destroyed.
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_PROD_WORKLOAD_PROFILE
+   SYD_PROD_ID=$(terraform output -raw test_host_instance_id)
+   SYD_PROD_ATT=$(terraform output -raw attachment_id)
+   SYD_PROD_IP=$(terraform output -raw test_host_private_ip)
+   echo "$SYD_PROD_ID $SYD_PROD_ATT $SYD_PROD_IP"
+   ```
+
+   ```text
+   i-01780abcba294ad2f tgw-attach-01126c4a9dfe84f48 10.255.2.69
+   ```
+
+</Steps>
+
+<Aside type="note">
+  user_data installs nginx + dnsmasq. Give it a minute after first boot.
+</Aside>
+
+## Validate (local)
+
+<Steps>
+
+1. Spoke attachment + SSM:
+
+   ```bash frame="terminal"
+   aws ec2 describe-transit-gateway-vpc-attachments \
+     --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$SYD_PROD_ATT" \
+     --query 'TransitGatewayVpcAttachments[0].State' --output text
+
+   aws ssm describe-instance-information \
+     --region ap-southeast-2 \
+     --filters "Key=InstanceIds,Values=$SYD_PROD_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+   ```
+
+   ```text
+   available
+   Online
+   ```
+
+2. Local HTTP (nginx):
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-2 \
+     --instance-ids "$SYD_PROD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"curl -sS -m 5 http://127.0.0.1/; echo; curl -sS -m 5 http://$SYD_PROD_IP/; echo; systemctl is-active nginx\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   active
+   ```
+
+3. Local DNS (dnsmasq on this host):
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-2 \
+     --instance-ids "$SYD_PROD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"systemctl is-active dnsmasq; dig +short @$SYD_PROD_IP lab.demo; dig +short @$SYD_PROD_IP syd-prod.lab.demo\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   active
+   10.255.2.69
+   10.255.2.69
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Query dnsmasq on the host private IP. Route 53 names like
+  <code>syd-prod.lab.demo</code> appear after hub-peering enables prod DNS.
+</Aside>
+
+## Next
+
+[Auckland](/deploy-and-operate/workload-prod/auckland/)

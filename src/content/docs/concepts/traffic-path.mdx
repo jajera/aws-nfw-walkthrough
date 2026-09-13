@@ -1,0 +1,76 @@
+---
+title: Traffic path
+description: How a Sydney host reaches Auckland through TGW and Network Firewall (double-inspect).
+---
+
+import Tooltip from "@/components/Tooltip.astro";
+import Diagram from "@/components/Diagram.astro";
+import trafficPath from "@/assets/diagrams/traffic-path.svg?raw";
+
+## Mesh first (NFW off)
+
+Spokes and peer associate to **no_inspection**. Traffic is TGW-only — no
+hairpin through the inspection VPC.
+
+## After Allow (NFW on)
+
+Host `syd-dev.lab.demo` calls `http://akl-dev.lab.demo/`.
+
+<Diagram
+  src={trafficPath}
+  alt="Sydney column read downward: demo host, spoke VPC route table, Transit Gateway inspection route table, Sydney firewall endpoint, then TGW peering. Auckland column read upward: Transit Gateway on the inspection route table, Auckland firewall endpoint, no-inspection route table, spoke route table, demo host."
+  caption="Cross-Region east-west is double-inspected: Syd NFW then Akl NFW (and the reverse on return). Icons from aws-icons."
+/>
+
+Sydney's firewall **is** on this path: egress follows `0.0.0.0/0` on the
+inspection RT into the local endpoint, then leaves via the peer. Auckland
+inspects on arrival. Return traffic mirrors the same pattern. That is
+<Tooltip term="double-inspect" label="double-inspect" />.
+
+Same-Region **dev ↔ prod** (e.g. `10.255.1.0/24` ↔ `10.255.2.0/24`) hairpins
+through that Region's NFW only — **one firewall sees both directions**. See
+[Inspection model](/concepts/inspection-model/).
+
+## What Allow passes
+
+Deny keeps stateful default **drop** (no PASS groups). Allow attaches Suricata
+groups from `modules/network-firewall/rules.tf` (IP sets of `/32`s — not whole
+spoke `/24`s):
+
+| Group | Intent |
+| ----- | ------ |
+| `peer_dev` | Dev Syd ↔ Akl: ICMP; TCP 80/53; UDP 53 |
+| `peer_dev_ssh` | Dummy jumps `.180–.199`: TCP 22 |
+| `same_region_demo` | Dev ↔ prod same Region: ICMP; TCP 80 |
+| `svc_prod_http` | Prod app sets: TCP 80/443 both ways |
+| `svc_prod_db` | Prod app → same-Region DB :5432 |
+| `svc_prod_dns` | Prod clients → DNS `/32`s :53 |
+| `svc_prod_metrics` | Prod monitors → apps :9100 |
+| `svc_prod_ldap` / `ntp` / `dummy_batch` | Dummy targets / CIDRs (demo hosts outside those sets still drop) |
+
+Demo host IPs fall inside those lab IP sets so peer-dev, same-region-demo, and
+prod-http succeed after Allow. Unmatched traffic still drops (dummy CIDRs/ports,
+prod ICMP across Regions, and so on) — same contrast as
+[Allow](/deploy-and-operate/nfw/allow/).
+
+## DNS
+
+`hub-peering` creates private zone `lab.demo` (owned in Syd-dev) and associates
+it to spoke VPCs. Prod names require `enable_prod_workloads=true`.
+
+| Name | Points at |
+| ---- | --------- |
+| `syd-dev.lab.demo` | Sydney dev host |
+| `akl-dev.lab.demo` | Auckland dev host |
+| `syd-prod.lab.demo` | Sydney prod host |
+| `akl-prod.lab.demo` | Auckland prod host |
+
+DHCP option sets add search domain `lab.demo` on the spokes.
+
+## Logs
+
+Each hub exports <Tooltip term="nfw" label="Network Firewall" /> CloudWatch
+groups via Terraform: `flow_log_group_name` and `alert_log_group_name`
+(e.g. `/aws/network-firewall/nfw-lab-syd/flow`). Prefer **flow** after Allow;
+**alert** shows `blocked` / `drop` in Deny. Cross-Region success means entries
+in **both** hubs' flow groups.

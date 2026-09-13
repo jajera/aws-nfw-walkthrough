@@ -1,0 +1,170 @@
+---
+title: Validate
+description: Prove cross-Region traffic is double-inspected on both hubs, and same-Region traffic both ways locally.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="nfw-validate"
+  items={[
+    "Allow already passed",
+    "Peer associated to inspection RT on both hubs",
+    "Inspection RTs have no remote spoke static routes via peering",
+    "Cross-Region Syd↔Akl flow logged on both hubs",
+    "Same-Region Syd-dev → Syd-prod logged both ways on Syd only",
+    "Alert/drop quiet for successful Allow probes",
+  ]}
+/>
+
+## Overview
+
+Allow proved traffic passes. This page proves **where** it was inspected
+(double-inspect):
+
+```text
+Syd-dev ──► Syd NFW ──► peer ──► Akl NFW ──► Akl-dev   both hubs
+Akl-dev ──► Akl NFW ──► peer ──► Syd NFW ──► Syd-dev   both hubs
+Syd-dev ──► Syd NFW ──► Syd-prod                       Syd only, both ways
+```
+
+Hosts (yours will differ — read them from `terraform output`):
+
+| Host | IP |
+| ---- | -- |
+| syd-dev | `10.255.1.58` |
+| akl-dev | `10.254.1.31` |
+| syd-prod | `10.255.2.69` |
+
+## 1) Control plane
+
+<Steps>
+
+1. Peer associated to the **inspection** RT on both hubs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   PEER=$(cd environment/sandbox/ap-southeast-2/hub-peering && terraform output -raw peering_attachment_id)
+   SYD_INSP=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -raw inspection_route_table_id)
+   AKL_INSP=$(cd environment/sandbox/ap-southeast-6/hub && terraform output -raw inspection_route_table_id)
+
+   aws ec2 describe-transit-gateway-attachments --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].Association.TransitGatewayRouteTableId' --output text
+   echo "expect $SYD_INSP"
+   aws ec2 describe-transit-gateway-attachments --region ap-southeast-6 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].Association.TransitGatewayRouteTableId' --output text
+   echo "expect $AKL_INSP"
+   ```
+
+2. Inspection RT static routes should be the hairpin defaults (e.g. `0.0.0.0/0`
+   toward the firewall), not remote spoke `/24`s via peering. Remote spoke
+   CIDRs live on **no_inspection** after the firewall hairpin:
+
+   ```bash frame="terminal"
+   for pair in "ap-southeast-2:$SYD_INSP" "ap-southeast-6:$AKL_INSP"; do
+     REG=${pair%%:*}; RT=${pair#*:}
+     echo "=== $REG $RT ==="
+     aws ec2 search-transit-gateway-routes --region "$REG" \
+       --transit-gateway-route-table-id "$RT" \
+       --filters 'Name=type,Values=static' \
+       --query 'Routes[].{cidr:DestinationCidrBlock,type:TransitGatewayAttachments[0].ResourceType}' \
+       --output table
+   done
+   ```
+
+   Expect no remote spoke `/24` static routes on the inspection RT.
+
+</Steps>
+
+## 2) Cross-Region: both hubs
+
+<Steps>
+
+1. Mark `T0` and probe both directions (dev profile):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   SYD_ID=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_instance_id)
+   AKL_ID=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_instance_id)
+   SYD_IP=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_private_ip)
+   AKL_IP=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_private_ip)
+   T0=$(($(date +%s)*1000)); echo "T0=$T0"
+
+   probe() {  # region instance target
+     CMD=$(aws ssm send-command --region "$1" --instance-ids "$2" \
+       --document-name AWS-RunShellScript \
+       --parameters "commands=[\"for i in 1 2 3; do ping -c1 -W2 $3; done; curl -sS -m 3 http://$3/ >/dev/null && echo CURL_OK\"]" \
+       --query 'Command.CommandId' --output text)
+     sleep 20
+     aws ssm get-command-invocation --region "$1" --command-id "$CMD" \
+       --instance-id "$2" --query 'StandardOutputContent' --output text | tail -3
+   }
+
+   probe ap-southeast-2 "$SYD_ID" "$AKL_IP"
+   probe ap-southeast-6 "$AKL_ID" "$SYD_IP"
+   ```
+
+   Expect `CURL_OK` and 0% loss both ways.
+
+2. Wait ~90s, then ask each hub's flow log which direction it saw:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   SYD_FLOW=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -raw flow_log_group_name)
+   AKL_FLOW=$(cd environment/sandbox/ap-southeast-6/hub && terraform output -raw flow_log_group_name)
+
+   for pair in "ap-southeast-2:$SYD_FLOW" "ap-southeast-6:$AKL_FLOW"; do
+     REG=${pair%%:*}; LG=${pair#*:}
+     echo "=== $LG ==="
+     aws logs filter-log-events --region "$REG" --log-group-name "$LG" \
+       --start-time "$T0" --limit 200 --query 'events[].message' --output json \
+       | jq -r '[.[] | fromjson | .event
+           | select((.src_ip|startswith("10.255.1")) or (.src_ip|startswith("10.254.1")))
+           | "\(.src_ip) > \(.dest_ip)"] | group_by(.) | map({dir:.[0],count:length})'
+   done
+   ```
+
+   ```text
+   === …/nfw-lab-syd/flow ===
+   [{"dir":"10.255.1.58 > 10.254.1.31","count":4},{"dir":"10.254.1.31 > 10.255.1.58","count":4}]
+   === …/nfw-lab-akl/flow ===
+   [{"dir":"10.255.1.58 > 10.254.1.31","count":4},{"dir":"10.254.1.31 > 10.255.1.58","count":4}]
+   ```
+
+   Each direction should appear on **both** hubs. If a direction is missing from
+   one side, peer association or inspection RT routes are wrong.
+
+</Steps>
+
+## 3) Same Region: one hub, both directions
+
+After Allow, Syd-dev ↔ Syd-prod is covered by `same_region_demo`. Probe it, then
+confirm both directions land in the **Sydney** flow group only:
+
+```bash frame="terminal"
+export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+SYD_PROD_IP=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_private_ip)
+# ping/curl Syd-prod from Syd-dev (same pattern as Allow), then:
+
+export AWS_PROFILE=YOUR_HUB_PROFILE
+aws logs filter-log-events --region ap-southeast-2 --log-group-name "$SYD_FLOW" \
+  --start-time "$T0" --limit 200 --query 'events[].message' --output json \
+  | jq -r '[.[] | fromjson | .event
+      | select((.src_ip|startswith("10.255.")) and (.dest_ip|startswith("10.255.")))
+      | "\(.src_ip) > \(.dest_ip)"] | group_by(.) | map({dir:.[0],count:length})'
+```
+
+Both directions of a same-Region flow land in the **same** log group. Auckland
+should not see that pair.
+
+<Aside type="note">
+  Cross-Region success means two NFW hops. That is why cost and flow-log checks
+  assume both hubs. See [Inspection model](/concepts/inspection-model/).
+</Aside>
+
+## Next
+
+[Teardown](/deploy-and-operate/teardown/)

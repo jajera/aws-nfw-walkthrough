@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 300" width="100%" role="img"
+     aria-label="Joint hub gate: each hub's local spoke CIDRs must equal the other hub's remote spoke CIDRs, with Network Firewall still off in both Regions"
+     font-family="Manrope, Open Sans, Segoe UI, sans-serif">
+  <title>The mirror gate after both hubs are up</title>
+  <desc>A rail across the top shows the order: validate Sydney, validate Auckland, then this joint hub gate, then dev workloads. Below, the two Regions sit side by side. Sydney lists local spoke CIDRs 10.255.1.0/24 and 10.255.2.0/24 and remote spoke CIDRs 10.254.1.0/24 and 10.254.2.0/24. Auckland lists the same two sets with local and remote swapped. Equals signs join Sydney local to Auckland remote and Sydney remote to Auckland local, which is the mirror assertion. Both Regions still report enable_network_firewall false.</desc>
+
+<!--
+  Icons are official AWS Architecture Icons, inlined as <symbol> from
+  https://jajera.github.io/aws-icons/ (browse, copy, strip the Sketch id=""
+  attributes so ids stay unique in the page).
+  Colours come from the .diagram-* classes in src/styles/splash-overrides.css:
+  presentation attributes here are the light palette, the CSS overrides dark.
+-->
+  <defs>
+    <marker id="mir-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" class="diagram-edge-fill" fill="#7a969e"/>
+    </marker>
+    <symbol id="mir-aws-tgw" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#8C4FFF">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <path d="M43.23,64.784 C44.303,63.866 45,62.519 45,61 C45,58.585 43.279,56.566 41,56.101 L41,47.93 C44.611,47.477 47.476,44.611 47.93,41 L56.101,41 C56.565,43.279 58.585,45 61,45 C62.519,45 63.866,44.304 64.784,43.23 C63.331,54.435 54.435,63.331 43.23,64.784 M15.215,43.23 C16.133,44.304 17.48,45 19,45 C21.414,45 23.434,43.279 23.898,41 L32.069,41 C32.523,44.611 35.388,47.477 39,47.93 L39,56.101 C36.72,56.566 35,58.585 35,61 C35,62.519 35.696,63.866 36.769,64.784 C25.564,63.331 16.668,54.435 15.215,43.23 M22,40 C22,41.654 20.654,43 19,43 C17.345,43 16,41.654 16,40 C16,38.346 17.345,37 19,37 C20.654,37 22,38.346 22,40 M36.769,15.216 C35.696,16.134 35,17.48 35,19 C35,21.414 36.72,23.434 39,23.899 L39,32.069 C35.388,32.523 32.523,35.388 32.069,39 L23.898,39 C23.434,36.721 21.414,35 19,35 C17.48,35 16.133,35.696 15.215,36.769 C16.668,25.564 25.564,16.669 36.769,15.216 M40,16 C41.654,16 43,17.346 43,19 C43,20.654 41.654,22 40,22 C38.345,22 37,20.654 37,19 C37,17.346 38.345,16 40,16 M40,46 C36.691,46 34,43.308 34,40 C34,36.691 36.691,34 40,34 C43.308,34 46,36.691 46,40 C46,43.308 43.308,46 40,46 M40,64 C38.345,64 37,62.654 37,61 C37,59.346 38.345,58 40,58 C41.654,58 43,59.346 43,61 C43,62.654 41.654,64 40,64 M64,40 C64,41.654 62.654,43 61,43 C59.345,43 58,41.654 58,40 C58,38.346 59.345,37 61,37 C62.654,37 64,38.346 64,40 M64.784,36.769 C63.866,35.696 62.519,35 61,35 C58.585,35 56.565,36.721 56.101,39 L47.93,39 C47.476,35.388 44.611,32.523 41,32.069 L41,23.899 C43.279,23.434 45,21.414 45,19 C45,17.48 44.303,16.134 43.23,15.216 C54.435,16.669 63.331,25.564 64.784,36.769 M40,13 C25.112,13 13,25.112 13,40 C13,54.888 25.112,67 40,67 C54.887,67 67,54.888 67,40 C67,25.112 54.887,13 40,13" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="mir-grp-region" viewBox="0 0 40 40">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <rect fill="#00A4A6" x="0" y="0" width="40" height="40"></rect>
+      <path d="M14,20.026 L14,11.026 L29.293,11.026 L25.146,15.172 C24.951,15.368 24.951,15.684 25.146,15.88 L29.293,20.026 L14,20.026 Z M26.207,15.526 L30.854,10.88 C30.996,10.736 31.039,10.522 30.962,10.335 C30.885,10.148 30.702,10.026 30.5,10.026 L14,10.026 L14,8.97 C14.596,8.76 15.026,8.198 15.026,7.531 C15.026,6.687 14.34,6 13.495,6 C12.65,6 11.963,6.687 11.963,7.531 C11.963,8.201 12.398,8.766 13,8.973 L13,33.026 L10,33.026 L10,34.026 L17,34.026 L17,33.026 L14,33.026 L14,21.026 L30.5,21.026 C30.702,21.026 30.885,20.904 30.962,20.717 C31.039,20.53 30.996,20.316 30.854,20.172 L26.207,15.526 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+  </defs>
+
+  <!-- ══ where this gate sits ═════════════════════════════════════════════ -->
+  <rect x="12" y="14" width="170" height="30" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="97" y="33" text-anchor="middle" class="diagram-caption" fill="#3a5560" font-size="9">validate Sydney</text>
+
+  <rect x="206" y="14" width="170" height="30" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="291" y="33" text-anchor="middle" class="diagram-caption" fill="#3a5560" font-size="9">validate Auckland</text>
+
+  <rect x="400" y="14" width="170" height="30" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <rect x="400" y="14" width="170" height="30" rx="8" fill="none" class="diagram-edge-allow" stroke="#067647"/>
+  <text x="485" y="33" text-anchor="middle" class="diagram-allow-tag" fill="#067647" font-size="9" font-weight="600">mirror gate — here</text>
+
+  <rect x="594" y="14" width="170" height="30" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="679" y="33" text-anchor="middle" class="diagram-caption" fill="#3a5560" font-size="9">workloads (dev)</text>
+
+  <g class="diagram-edge" stroke="#7a969e" stroke-width="1.5">
+    <line x1="184" y1="29" x2="202" y2="29" marker-end="url(#mir-arrow)"/>
+    <line x1="378" y1="29" x2="396" y2="29" marker-end="url(#mir-arrow)"/>
+    <line x1="572" y1="29" x2="590" y2="29" marker-end="url(#mir-arrow)"/>
+  </g>
+
+  <!-- ══ Sydney ═══════════════════════════════════════════════════════════ -->
+  <rect x="12" y="62" width="440" height="206" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#mir-grp-region" x="26" y="70" width="14" height="14"/>
+  <text x="46" y="81" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">ap-southeast-2 · Sydney</text>
+  <text x="438" y="81" text-anchor="end" class="diagram-caption" fill="#3a5560" font-size="9">ASN 65001</text>
+
+  <use href="#mir-aws-tgw" x="26" y="94" width="28" height="28"/>
+  <text x="62" y="112" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">tgw-04fc7f3ccf224fdf2</text>
+  <text x="438" y="112" text-anchor="end" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">enable_network_firewall = false</text>
+
+  <rect x="26" y="132" width="412" height="52" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="40" y="150" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">local_spoke_cidrs</text>
+  <text x="40" y="170" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.255.1.0/24</text>
+  <text x="170" y="170" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.255.2.0/24</text>
+
+  <rect x="26" y="202" width="412" height="52" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="40" y="220" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">remote_spoke_cidrs</text>
+  <text x="40" y="240" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.254.1.0/24</text>
+  <text x="170" y="240" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.254.2.0/24</text>
+
+  <!-- ══ Auckland, local and remote swapped ═══════════════════════════════ -->
+  <rect x="528" y="62" width="440" height="206" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#mir-grp-region" x="542" y="70" width="14" height="14"/>
+  <text x="562" y="81" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">ap-southeast-6 · Auckland</text>
+  <text x="954" y="81" text-anchor="end" class="diagram-caption" fill="#3a5560" font-size="9">ASN 65002</text>
+
+  <use href="#mir-aws-tgw" x="542" y="94" width="28" height="28"/>
+  <text x="578" y="112" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">tgw-04db3776f3a795ce7</text>
+  <text x="954" y="112" text-anchor="end" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">enable_network_firewall = false</text>
+
+  <rect x="542" y="132" width="412" height="52" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="556" y="150" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">remote_spoke_cidrs</text>
+  <text x="556" y="170" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.255.1.0/24</text>
+  <text x="686" y="170" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.255.2.0/24</text>
+
+  <rect x="542" y="202" width="412" height="52" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <text x="556" y="220" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">local_spoke_cidrs</text>
+  <text x="556" y="240" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.254.1.0/24</text>
+  <text x="686" y="240" class="diagram-mono" fill="#1a3844" font-size="9"
+        font-family="Source Code Pro, ui-monospace, monospace">10.254.2.0/24</text>
+
+  <!-- ══ the two equalities the gate asserts ══════════════════════════════ -->
+  <g class="diagram-edge-allow" stroke="#067647" stroke-width="1.5">
+    <line x1="440" y1="158" x2="472" y2="158"/>
+    <line x1="508" y1="158" x2="540" y2="158"/>
+    <line x1="440" y1="228" x2="472" y2="228"/>
+    <line x1="508" y1="228" x2="540" y2="228"/>
+  </g>
+  <text x="490" y="164" text-anchor="middle" class="diagram-allow-tag" fill="#067647" font-size="16" font-weight="700">=</text>
+  <text x="490" y="234" text-anchor="middle" class="diagram-allow-tag" fill="#067647" font-size="16" font-weight="700">=</text>
+
+  <text x="12" y="290" class="diagram-caption" fill="#3a5560" font-size="9">Both equalities must hold — that is exactly what the SYD_LOCAL = AKL_REMOTE and AKL_LOCAL = SYD_REMOTE test asserts.</text>
+</svg>

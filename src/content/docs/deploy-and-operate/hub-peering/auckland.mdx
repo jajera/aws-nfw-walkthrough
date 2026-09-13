@@ -1,0 +1,171 @@
+---
+title: Auckland
+description: Validate the Auckland side of hub peering (accepter TGW, remote route, DNS, DHCP).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+import peeringStack from "@/assets/diagrams/hub-peering-stack.svg?raw";
+
+<Checklist
+  id="auckland-hub-peering"
+  items={[
+    "Sydney hub-peering apply already done",
+    "Auckland peering attachment available",
+    "Remote Syd spoke route active via peer",
+    "akl-dev.lab.demo A record matches Akl host",
+    "Akl spoke DHCP search domain lab.demo",
+    "lab.demo zone associated to Akl spoke VPC",
+  ]}
+/>
+
+## Overview
+
+There is **no second apply**. The stack under
+`ap-southeast-2/hub-peering` already accepted peering on the Auckland TGW,
+wrote the remote Syd spoke route, associated `lab.demo` to the Akl spoke, and
+set DHCP.
+
+Validate **this Region** after [Sydney](/deploy-and-operate/hub-peering/sydney/),
+then [Hub peering → Validate](/deploy-and-operate/hub-peering/validate/).
+
+<Diagram
+  src={peeringStack}
+  alt="One Terraform stack creating a single TGW peering attachment that exists in both Regions, with Sydney as requester and Auckland as accepter. Each Region gets the peer on its no_inspection route table with static routes to the other Region's spokes, the lab.demo private zone associated to its spoke VPC, and a DHCP option set carrying the lab.demo search domain."
+  caption="Same diagram as the Sydney page, on purpose — same stack. This page reads the right-hand column, which the Sydney apply already created. Icons from aws-icons."
+/>
+
+## Validate
+
+<Steps>
+
+1. Load IDs from the shared stack (still under the Sydney path):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   cd environment/sandbox/ap-southeast-2/hub-peering
+   PEER=$(terraform output -raw peering_attachment_id)
+   ```
+
+2. Auckland attachment state and RT association (**no_inspection** while NFW off):
+
+   ```bash frame="terminal"
+   AKL_NO=$(cd ../../ap-southeast-6/hub && terraform output -raw no_inspection_route_table_id)
+
+   aws ec2 describe-transit-gateway-attachments \
+     --region ap-southeast-6 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].{State:State,Assoc:Association.TransitGatewayRouteTableId}' \
+     --output table
+
+   echo "expect Assoc == $AKL_NO (passthrough)"
+   ```
+
+   ```text
+   --------------------------------------------
+   |     DescribeTransitGatewayAttachments    |
+   +----------------------------+-------------+
+   |            Assoc           |    State    |
+   +----------------------------+-------------+
+   |  tgw-rtb-0de1397f3982b6434 |  available  |
+   +----------------------------+-------------+
+   expect Assoc == tgw-rtb-0de1397f3982b6434 (passthrough)
+   ```
+
+3. Static routes to Sydney spokes via the peer (Akl no-inspection RT):
+
+   ```bash frame="terminal"
+   AKL_NO=$(cd ../../ap-southeast-6/hub && terraform output -raw no_inspection_route_table_id)
+
+   aws ec2 search-transit-gateway-routes \
+     --region ap-southeast-6 \
+     --transit-gateway-route-table-id "$AKL_NO" \
+     --filters "Name=route-search.subnet-of-match,Values=10.255.0.0/16" \
+     --query 'Routes[].{Dest:DestinationCidrBlock,Attach:TransitGatewayAttachments[0].TransitGatewayAttachmentId,State:State}' \
+     --output table
+   ```
+
+   ```text
+   -------------------------------------------------------------
+   |                SearchTransitGatewayRoutes                 |
+   +-------------------------------+-----------------+---------+
+   |            Attach             |      Dest       |  State  |
+   +-------------------------------+-----------------+---------+
+   |  tgw-attach-0ef352cc0c6405026 |  10.255.1.0/24  |  active |
+   |  tgw-attach-0ef352cc0c6405026 |  10.255.2.0/24  |  active |
+   +-------------------------------+-----------------+---------+
+   ```
+
+4. `akl-dev.lab.demo` A record matches the Auckland host IP:
+
+   ```bash frame="terminal"
+   AKL_IP=$(cd ../../ap-southeast-6/workload-dev && terraform output -raw test_host_private_ip)
+   ZONE=$(aws route53 list-hosted-zones-by-name --dns-name lab.demo. \
+     --query 'HostedZones[?Config.PrivateZone==`true`].Id' --output text | sed 's|/hostedzone/||' | head -1)
+
+   aws route53 list-resource-record-sets \
+     --hosted-zone-id "$ZONE" \
+     --query "ResourceRecordSets[?Name=='akl-dev.lab.demo.'].[Name,ResourceRecords[0].Value]" \
+     --output text
+
+   echo "expect A == $AKL_IP"
+   ```
+
+   ```text
+   akl-dev.lab.demo.	10.254.1.31
+   expect A == 10.254.1.31
+   ```
+
+5. Private zone associated to the Auckland spoke VPC:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   AKL_VPC=$(cd ../../ap-southeast-6/workload-dev && terraform output -raw vpc_id)
+
+   aws route53 list-hosted-zones-by-vpc \
+     --vpc-id "$AKL_VPC" \
+     --vpc-region ap-southeast-6 \
+     --query 'HostedZoneSummaries[?Name==`lab.demo.`].Name' \
+     --output text
+   ```
+
+   ```text
+   lab.demo.
+   ```
+
+6. Auckland spoke DHCP search domain:
+
+   ```bash frame="terminal"
+   DHCP=$(aws ec2 describe-vpcs --region ap-southeast-6 --vpc-ids "$AKL_VPC" \
+     --query 'Vpcs[0].DhcpOptionsId' --output text)
+
+   aws ec2 describe-dhcp-options --region ap-southeast-6 --dhcp-options-ids "$DHCP" \
+     --query 'DhcpOptions[0].DhcpConfigurations[?Key==`domain-name` || Key==`domain-name-servers`]' \
+     --output json
+   ```
+
+   ```text
+   [
+       {
+           "Key": "domain-name",
+           "Values": [{ "Value": "lab.demo" }]
+       },
+       {
+           "Key": "domain-name-servers",
+           "Values": [{ "Value": "AmazonProvidedDNS" }]
+       }
+   ]
+   ```
+
+</Steps>
+
+<Aside type="note">
+  Cross-Region <code>curl</code> / <code>dig</code> still wait for
+  [Prove](/deploy-and-operate/prove/). This page only proves Auckland’s half of
+  the control plane.
+</Aside>
+
+## Next
+
+[Validate](/deploy-and-operate/hub-peering/validate/)
