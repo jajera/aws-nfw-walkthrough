@@ -1,0 +1,184 @@
+---
+title: Allow
+description: Attach Suricata PASS groups and prove which flows succeed.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="nfw-allow"
+  items={[
+    "Deny already observed",
+    "Both hubs: firewall_rules_enabled=true",
+    "Ten PASS groups on Syd + Akl policies",
+    "Syd-dev → Akl-dev: ping + HTTP + dig OK",
+    "Syd-prod → Akl-prod: HTTP OK (ICMP still drops)",
+    "Syd-dev → Syd-prod: ping + HTTP OK (same_region_demo)",
+  ]}
+/>
+
+## Flip
+
+```text
+Deny   enable_network_firewall=true   firewall_rules_enabled=false
+Allow  enable_network_firewall=true   firewall_rules_enabled=true
+         │
+         └─► rules.tf → 10 stateful groups + IP sets on both hubs
+```
+
+Persist in **both** hub `terraform.tfvars`, then full apply (not `-target`).
+
+## Groups
+
+| Pri | Group | Passes |
+| --- | ----- | ------ |
+| 10 | `*-peer-dev` | Dev Syd ↔ Akl: ICMP · TCP 80/53 · UDP 53 |
+| 11 | `*-peer-dev-ssh` | Dummy jumps `.180–.199`: TCP 22 (demo hosts outside → still drop) |
+| 15 | `*-same-region-demo` | Dev ↔ prod same Region: ICMP · TCP 80 |
+| 20 | `*-svc-prod-http` | Prod apps: TCP 80/443 |
+| 21 | `*-svc-prod-db` | Prod app → same-Region DB :5432 |
+| 22 | `*-svc-prod-dns` | Prod clients → DNS `/32` :53 |
+| 23 | `*-svc-prod-metrics` | Prod monitors → apps :9100 |
+| 24 | `*-svc-prod-ldap` | Prod apps → dummy LDAP `/32` :389/636 |
+| 25 | `*-svc-prod-ntp` | Prod apps → dummy NTP `/32` :123 |
+| 30 | `*-svc-dummy-batch` | Dummy `.150–.179` :8443 (demo hosts **not** in set → drop) |
+
+IP sets are `/32` ranges (see [Rule design](/deploy-and-operate/nfw/rule-design/)), not whole spoke `/24`s. Outside a set → stateful default **drop**.
+
+## Expect
+
+```text
+                 Akl-dev     Syd-prod     Akl-prod
+Syd-dev          ✓ ping/HTTP   ✓ ping/HTTP  (peer_dev / same_region)
+Syd-prod         —             —           ✓ HTTP  ✗ ICMP
+```
+
+Same-Region **dev ↔ prod** is allowed by `same_region_demo`. Unmatched ports /
+dummy targets still drop.
+
+## Apply
+
+<Steps>
+
+1. Sydney:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/hub
+   # firewall_rules_enabled = true
+   terraform apply
+   ```
+
+   ```text
+   Apply complete! Resources: … added, … changed, 0 destroyed.
+   firewall_rules_enabled = true
+   ```
+
+2. Auckland:
+
+   ```bash frame="terminal"
+   cd ../../ap-southeast-6/hub
+   terraform apply
+   ```
+
+   ```text
+   Apply complete! Resources: … added, … changed, 0 destroyed.
+   firewall_rules_enabled = true
+   ```
+
+3. Policy references (hub profile) — Syd:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   FW=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -raw firewall_arn)
+   POL=$(aws network-firewall describe-firewall --region ap-southeast-2 \
+     --firewall-arn "$FW" --query Firewall.FirewallPolicyArn --output text)
+   aws network-firewall describe-firewall-policy --region ap-southeast-2 \
+     --firewall-policy-arn "$POL" \
+     --query 'FirewallPolicy.StatefulRuleGroupReferences[].{Pri:Priority,Arn:ResourceArn}' \
+     --output table
+   ```
+
+   ```text
+   | Arn …/nfw-lab-syd-peer-dev          | 10 |
+   | Arn …/nfw-lab-syd-peer-dev-ssh      | 11 |
+   | Arn …/nfw-lab-syd-same-region-demo  | 15 |
+   | Arn …/nfw-lab-syd-svc-prod-http     | 20 |
+   | Arn …/nfw-lab-syd-svc-prod-db       | 21 |
+   | Arn …/nfw-lab-syd-svc-prod-dns      | 22 |
+   | Arn …/nfw-lab-syd-svc-prod-metrics  | 23 |
+   | Arn …/nfw-lab-syd-svc-prod-ldap     | 24 |
+   | Arn …/nfw-lab-syd-svc-prod-ntp      | 25 |
+   | Arn …/nfw-lab-syd-svc-dummy-batch   | 30 |
+   ```
+
+   Repeat for `ap-southeast-6` / `nfw-lab-akl-*` (same priorities).
+
+4. Wait ~30–60s for endpoints to pick up the policy, then probe Syd-dev
+   (dev workload profile):
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   SYD_ID=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_instance_id)
+   AKL_IP=$(cd environment/sandbox/ap-southeast-6/workload-dev && terraform output -raw test_host_private_ip)
+   SYD_PROD_IP=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_private_ip)
+
+   CMD=$(aws ssm send-command --region ap-southeast-2 --instance-ids "$SYD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"echo ===AKL_DEV===; ping -c3 -W2 $AKL_IP; echo ---; curl -sS -m 5 http://$AKL_IP/; echo ---; dig +short @$AKL_IP lab.demo; echo ===SYD_PROD===; ping -c3 -W2 $SYD_PROD_IP; echo ---; curl -sS -m 5 http://$SYD_PROD_IP/\"]" \
+     --query 'Command.CommandId' --output text)
+   sleep 20
+   aws ssm get-command-invocation --region ap-southeast-2 \
+     --command-id "$CMD" --instance-id "$SYD_ID" \
+     --query 'StandardOutputContent' --output text
+   ```
+
+   ```text
+   ===AKL_DEV===
+   … 3 received, 0% packet loss …
+   ---
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   ---
+   10.254.1.31
+   ===SYD_PROD===
+   … 3 received, 0% packet loss …
+   ---
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   ```
+
+5. Prod HTTP (prod workload profile) — ICMP should still fail:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_PROD_WORKLOAD_PROFILE
+   SYD_PROD_ID=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_instance_id)
+   AKL_PROD_IP=$(cd environment/sandbox/ap-southeast-6/workload-prod && terraform output -raw test_host_private_ip)
+
+   CMD=$(aws ssm send-command --region ap-southeast-2 --instance-ids "$SYD_PROD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"echo ===AKL_PROD===; ping -c2 -W2 $AKL_PROD_IP; echo ---; curl -sS -m 5 http://$AKL_PROD_IP/; echo ---; curl -sS -m 5 http://akl-prod.lab.demo/\"]" \
+     --query 'Command.CommandId' --output text)
+   sleep 15
+   aws ssm get-command-invocation --region ap-southeast-2 \
+     --command-id "$CMD" --instance-id "$SYD_PROD_ID" \
+     --query 'StandardOutputContent' --output text
+   ```
+
+   ```text
+   ===AKL_PROD===
+   … 100% packet loss …
+   ---
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   ---
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  If peer-dev still drops, wait another minute and retry — policy sync lags
+  endpoints. Do not flip routes.
+</Aside>
+
+## Next
+
+[Validate](/deploy-and-operate/nfw/validate/)

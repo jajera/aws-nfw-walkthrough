@@ -1,0 +1,139 @@
+---
+title: Sydney
+description: Apply and validate the Sydney spoke and demo host (local HTTP + DNS).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="sydney-workload"
+  items={[
+    "Hubs Validate passed",
+    "syd-dev apply succeeded",
+    "Spoke attachment available; SSM Online",
+    "Local HTTP (nginx) works",
+    "Local DNS (dnsmasq) works",
+  ]}
+/>
+
+## Overview
+
+Spoke `10.255.1.0/24` in the workload account, TGW attach to `syd-hub`, and a
+demo EC2 with **nginx :80** and **dnsmasq :53** (small on-prem DNS/HTTP
+stand-in — validate with `curl` / `dig`, nothing fancy).
+
+Validate **locally** here (HTTP + DNS on this host). Inter-Region checks wait
+until [Prove mesh](/deploy-and-operate/prove/) then
+[Network Firewall](/deploy-and-operate/nfw/sydney/).
+
+```text
+environment/sandbox/ap-southeast-2/workload-dev
+  → spoke · attach · demo host (nginx + dnsmasq)
+  → validate local only
+```
+
+## Apply
+
+<Steps>
+
+1. Apply:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/workload-dev
+   cp terraform.tfvars.example terraform.tfvars   # workload + hub profiles
+   terraform init
+   terraform apply
+   ```
+
+   ```text
+   Apply complete! Resources: … added, 0 changed, 0 destroyed.
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_WORKLOAD_PROFILE
+   SYD_ID=$(terraform output -raw test_host_instance_id)
+   SYD_ATT=$(terraform output -raw attachment_id)
+   SYD_IP=$(terraform output -raw test_host_private_ip)
+   echo "$SYD_ID $SYD_ATT $SYD_IP"
+   ```
+
+   ```text
+   i-09c779c39f05e1547 tgw-attach-0f2cffbb9fc980160 10.255.1.58
+   ```
+
+</Steps>
+
+<Aside type="note">
+  user_data installs nginx + dnsmasq (and disables the systemd-resolved stub so
+  dnsmasq can bind :53). Give it a minute after first boot.
+</Aside>
+
+## Validate (local)
+
+<Steps>
+
+1. Spoke attachment + SSM:
+
+   ```bash frame="terminal"
+   aws ec2 describe-transit-gateway-vpc-attachments \
+     --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$SYD_ATT" \
+     --query 'TransitGatewayVpcAttachments[0].State' --output text
+
+   aws ssm describe-instance-information \
+     --region ap-southeast-2 \
+     --filters "Key=InstanceIds,Values=$SYD_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+   ```
+
+   ```text
+   available
+   Online
+   ```
+
+2. Local HTTP (nginx):
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-2 \
+     --instance-ids "$SYD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"curl -sS -m 5 http://127.0.0.1/; echo; curl -sS -m 5 http://$SYD_IP/; echo; systemctl is-active nginx\"]" \
+     --query 'Command.CommandId' --output text
+   # then get-command-invocation …
+   ```
+
+   ```text
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   active
+   ```
+
+3. Local DNS (dnsmasq on this host):
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-2 \
+     --instance-ids "$SYD_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"systemctl is-active dnsmasq; dig +short @$SYD_IP lab.demo; dig +short @$SYD_IP syd-dev.lab.demo\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   active
+   10.255.1.58
+   10.255.1.58
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Query dnsmasq on the host private IP (<code>dig @$SYD_IP …</code>), not
+  <code>127.0.0.1</code> — the lab binds the ENI address.
+</Aside>
+
+## Next
+
+[Auckland](/deploy-and-operate/workload/auckland/)

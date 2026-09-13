@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none" role="img" aria-label="AWS NFW Walkthrough — dual-hub Transit Gateway and Network Firewall across Sydney and Auckland, cross-Region traffic inspected in both hubs">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#071014"/>
+      <stop offset="1" stop-color="#0b171c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(180 40) scale(720 520)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.16"/>
+      <stop offset="0.6" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.3" cy="1.3" r="1.3" fill="#22d3ee" fill-opacity="0.07"/>
+    </pattern>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="1" y="1" width="1198" height="628" rx="24" fill="none" stroke="#22d3ee" stroke-opacity="0.18" stroke-width="2"/>
+
+  <!-- eyebrow -->
+  <text x="80" y="150" font-family="Outfit, Montserrat, Segoe UI, sans-serif" font-size="26" font-weight="600"
+        letter-spacing="6" fill="#67e8f9">INSPECTED IN BOTH HUBS</text>
+
+  <!-- title -->
+  <text x="78" y="248" font-family="Outfit, Montserrat, Segoe UI, sans-serif" font-size="86" font-weight="800"
+        letter-spacing="-2" fill="#eef8fa">AWS NFW</text>
+  <text x="78" y="344" font-family="Outfit, Montserrat, Segoe UI, sans-serif" font-size="86" font-weight="800"
+        letter-spacing="-2" fill="#eef8fa">Walkthrough</text>
+
+  <!-- tagline -->
+  <text x="80" y="414" font-family="Manrope, Open Sans, Segoe UI, sans-serif" font-size="30" font-weight="500" fill="#b7cdd4">
+    Dual-hub Transit Gateway and Network
+  </text>
+  <text x="80" y="456" font-family="Manrope, Open Sans, Segoe UI, sans-serif" font-size="30" font-weight="500" fill="#b7cdd4">
+    Firewall across Sydney and Auckland.
+  </text>
+
+  <!-- region motif: two inspection hubs (firewall walls) + TGW peering -->
+  <g transform="translate(710 462)">
+    <!-- Sydney: hub boundary + firewall bricks -->
+    <g>
+      <rect x="0" y="0" width="130" height="96" rx="10" fill="#0a3a45"/>
+      <g stroke="#22d3ee" stroke-width="2" stroke-opacity="0.85">
+        <path d="M0 32 h130 M0 64 h130"/>
+        <path d="M43 0 v32 M87 0 v32"/>
+        <path d="M22 32 v32 M65 32 v32 M108 32 v32"/>
+        <path d="M43 64 v32 M87 64 v32"/>
+      </g>
+      <rect x="0" y="0" width="130" height="96" rx="10" fill="none" stroke="#22d3ee" stroke-width="3"/>
+    </g>
+    <text x="65" y="126" text-anchor="middle" font-family="Manrope, Open Sans, sans-serif" font-size="21" font-weight="600" fill="#67e8f9">ap-southeast-2</text>
+    <text x="65" y="150" text-anchor="middle" font-family="Manrope, Open Sans, sans-serif" font-size="18" fill="#5a7a86">Sydney</text>
+
+    <!-- TGW peering, both directions -->
+    <g stroke="#67e8f9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M138 48 h74"/>
+      <path d="M152 38 L140 48 L152 58"/>
+      <path d="M198 38 L210 48 L198 58"/>
+    </g>
+
+    <!-- Auckland: hub boundary + firewall bricks -->
+    <g transform="translate(220 0)">
+      <rect x="0" y="0" width="130" height="96" rx="10" fill="#0a3a45"/>
+      <g stroke="#67e8f9" stroke-width="2" stroke-opacity="0.85">
+        <path d="M0 32 h130 M0 64 h130"/>
+        <path d="M43 0 v32 M87 0 v32"/>
+        <path d="M22 32 v32 M65 32 v32 M108 32 v32"/>
+        <path d="M43 64 v32 M87 64 v32"/>
+      </g>
+      <rect x="0" y="0" width="130" height="96" rx="10" fill="none" stroke="#67e8f9" stroke-width="3"/>
+    </g>
+    <text x="285" y="126" text-anchor="middle" font-family="Manrope, Open Sans, sans-serif" font-size="21" font-weight="600" fill="#67e8f9">ap-southeast-6</text>
+    <text x="285" y="150" text-anchor="middle" font-family="Manrope, Open Sans, sans-serif" font-size="18" fill="#5a7a86">Auckland</text>
+  </g>
+</svg>

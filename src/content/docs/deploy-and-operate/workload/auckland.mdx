@@ -1,0 +1,133 @@
+---
+title: Auckland
+description: Apply and validate the Auckland spoke and demo host (local HTTP + DNS).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="auckland-workload"
+  items={[
+    "Sydney workload already validated locally",
+    "akl-dev apply succeeded",
+    "Spoke attachment available; SSM Online",
+    "Local HTTP (nginx) works",
+    "Local DNS (dnsmasq) works",
+  ]}
+/>
+
+## Overview
+
+Same as Sydney in `ap-southeast-6`: spoke, TGW attach, demo EC2 with nginx +
+dnsmasq (on-prem DNS/HTTP stand-in). Validate **locally** here; inter-Region
+waits for peering + Prove.
+
+Auckland omits the `ec2messages` VPC endpoint by design: Regions launched
+in 2024+ support `ssmmessages` only. Akl spokes set
+`ssm_endpoint_services = ["ssm", "ssmmessages"]`.
+
+```text
+environment/sandbox/ap-southeast-6/workload-dev
+  → spoke · attach · demo host (nginx + dnsmasq)
+  → validate local only
+```
+
+## Apply
+
+<Steps>
+
+1. Apply:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-6/workload-dev
+   cp terraform.tfvars.example terraform.tfvars
+   terraform init
+   terraform apply
+   ```
+
+   ```text
+   Apply complete! Resources: … added, 0 changed, 0 destroyed.
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_WORKLOAD_PROFILE
+   AKL_ID=$(terraform output -raw test_host_instance_id)
+   AKL_ATT=$(terraform output -raw attachment_id)
+   AKL_IP=$(terraform output -raw test_host_private_ip)
+   echo "$AKL_ID $AKL_ATT $AKL_IP"
+   ```
+
+   ```text
+   i-02f5d7b615f99cfa2 tgw-attach-054884a8487364902 10.254.1.31
+   ```
+
+</Steps>
+
+## Validate (local)
+
+<Steps>
+
+1. Spoke attachment + SSM:
+
+   ```bash frame="terminal"
+   aws ec2 describe-transit-gateway-vpc-attachments \
+     --region ap-southeast-6 \
+     --transit-gateway-attachment-ids "$AKL_ATT" \
+     --query 'TransitGatewayVpcAttachments[0].State' --output text
+
+   aws ssm describe-instance-information \
+     --region ap-southeast-6 \
+     --filters "Key=InstanceIds,Values=$AKL_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+   ```
+
+   ```text
+   available
+   Online
+   ```
+
+2. Local HTTP (nginx):
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-6 \
+     --instance-ids "$AKL_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"curl -sS -m 5 http://127.0.0.1/; echo; curl -sS -m 5 http://$AKL_IP/; echo; systemctl is-active nginx\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   <html><body><h1>aws-nfw-lab</h1><p>demo http</p></body></html>
+   active
+   ```
+
+3. Local DNS (dnsmasq on this host):
+
+   ```bash frame="terminal"
+   aws ssm send-command --region ap-southeast-6 \
+     --instance-ids "$AKL_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters "commands=[\"systemctl is-active dnsmasq; dig +short @$AKL_IP lab.demo; dig +short @$AKL_IP akl-dev.lab.demo\"]" \
+     --query 'Command.CommandId' --output text
+   ```
+
+   ```text
+   active
+   10.254.1.31
+   10.254.1.31
+   ```
+
+</Steps>
+
+<Aside type="caution">
+  Do not peer until [Workloads → Validate](/deploy-and-operate/workload/validate/)
+  passes.
+</Aside>
+
+## Next
+
+[Validate](/deploy-and-operate/workload/validate/)

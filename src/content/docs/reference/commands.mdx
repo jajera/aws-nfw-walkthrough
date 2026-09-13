@@ -1,0 +1,58 @@
+---
+title: Commands
+description: Stack paths, outputs, and SSM probe templates — not a second walkthrough.
+---
+
+Quick reference while you follow [Deploy and operate](/deploy-and-operate/prerequisites/). Apply order, flags, probes, and destroy live on those pages — [Teardown](/deploy-and-operate/teardown/) for destroy.
+
+Lab: [jajera/aws-nfw-lab](https://github.com/jajera/aws-nfw-lab). Paths below are under `environment/sandbox/`.
+
+## Stacks
+
+| Stack | Path |
+| ----- | ---- |
+| Syd hub | `ap-southeast-2/hub` |
+| Akl hub | `ap-southeast-6/hub` |
+| Syd / Akl workload-dev | `ap-southeast-2/workload-dev` · `ap-southeast-6/workload-dev` |
+| Syd / Akl workload-prod | `ap-southeast-2/workload-prod` · `ap-southeast-6/workload-prod` |
+| Hub peering (+ `lab.demo`) | `ap-southeast-2/hub-peering` |
+
+Prefer full `terraform apply` with flags in `terraform.tfvars` — avoid `-target`.
+
+## Outputs
+
+```bash frame="terminal"
+# hub (either Region)
+terraform output -raw enable_network_firewall
+terraform output -raw firewall_rules_enabled
+terraform output -raw spoke_association_route_table_id
+terraform output -raw flow_log_group_name
+terraform output -raw alert_log_group_name
+
+# workload-*
+terraform output -raw test_host_instance_id
+terraform output -raw test_host_private_ip
+
+# hub-peering
+terraform output -raw peering_attachment_id
+terraform output -raw syd_dev_hostname
+```
+
+## SSM probe template
+
+```bash frame="terminal"
+export AWS_PROFILE=YOUR_WORKLOAD_PROFILE   # dev or prod
+REGION=ap-southeast-2                      # or ap-southeast-6
+INSTANCE_ID=…                              # test_host_instance_id
+
+CMD=$(aws ssm send-command --region "$REGION" --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["ping -c2 …; curl -sS -m 5 http://…/; dig +short …"]' \
+  --query 'Command.CommandId' --output text)
+sleep 15
+aws ssm get-command-invocation --region "$REGION" \
+  --command-id "$CMD" --instance-id "$INSTANCE_ID" \
+  --query 'StandardOutputContent' --output text
+```
+
+Concrete command strings are on [Prove](/deploy-and-operate/prove/), [Deny](/deploy-and-operate/nfw/deny/), [Allow](/deploy-and-operate/nfw/allow/), and [Validate](/deploy-and-operate/nfw/validate/).

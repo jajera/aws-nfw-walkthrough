@@ -1,0 +1,128 @@
+---
+title: Prerequisites
+description: Tooling, profiles, Regions, and the companion lab repo.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+import access from "@/assets/diagrams/prereq-access.svg?raw";
+import stages from "@/assets/diagrams/architecture-stages.svg?raw";
+
+<Checklist
+  id="prereq"
+  items={[
+    "Terraform >= 1.16 installed",
+    "AWS CLI v2: hub + dev + prod profiles logged in",
+    "All three profiles can call ap-southeast-2 and ap-southeast-6",
+    "Org RAM sharing enabled (if same Organization)",
+    "Cloned jajera/aws-nfw-lab",
+  ]}
+/>
+
+## Overview
+
+Terraform lives in
+[`jajera/aws-nfw-lab`](https://github.com/jajera/aws-nfw-lab). This walkthrough
+is docs only.
+
+Three accounts, three profiles, two Regions. Every profile is used in **both**
+Regions, and `hub-peering` is the one stack that exists in Sydney only:
+
+<Diagram
+  src={access}
+  alt="Three rows mapping an AWS CLI profile to an account to the stacks it applies in ap-southeast-2 and ap-southeast-6. The hub profile drives hub in both Regions plus hub-peering in Sydney only; the dev and prod profiles drive workload-dev and workload-prod in both Regions."
+  caption="The two prerequisites that bite are along the bottom: Organizations RAM sharing, and Region opt-in for ap-southeast-6. Icons from aws-icons."
+/>
+
+Need permission for TGW, Network Firewall, RAM, EC2, SSM, Route 53 private zones.
+
+## Clone the lab
+
+```bash frame="terminal"
+git clone https://github.com/jajera/aws-nfw-lab.git
+cd aws-nfw-lab
+```
+
+## Terraform
+
+<Tabs syncKey="os">
+  <TabItem label="macOS">
+
+```bash frame="terminal"
+brew install terraform
+terraform version
+```
+
+  </TabItem>
+  <TabItem label="Linux">
+
+```bash frame="terminal"
+# HashiCorp apt/yum or tfenv
+terraform version
+```
+
+  </TabItem>
+</Tabs>
+
+| Tool | Version | Notes |
+| ---- | ------- | ----- |
+| Terraform | `>= 1.16` | |
+| AWS provider | `~> 6.64` | pinned in each stack |
+| `jq` | any | several walkthrough checks parse JSON output |
+
+## AWS CLI and profiles
+
+```bash frame="terminal"
+aws --version
+aws sts get-caller-identity --profile YOUR_HUB_PROFILE
+aws sts get-caller-identity --profile YOUR_DEV_WORKLOAD_PROFILE
+aws sts get-caller-identity --profile YOUR_PROD_WORKLOAD_PROFILE
+```
+
+| Doc placeholder | Used for |
+| --------------- | -------- |
+| `YOUR_HUB_PROFILE` | Both hubs + hub-peering |
+| `YOUR_DEV_WORKLOAD_PROFILE` | `workload-dev` stacks + SSM on dev hosts |
+| `YOUR_PROD_WORKLOAD_PROFILE` | `workload-prod` stacks + SSM on prod hosts |
+
+Confirm each profile can call **both** `ap-southeast-2` and `ap-southeast-6`
+(Auckland may need opt-in).
+
+## Org RAM
+
+Same Organization: enable resource sharing with AWS Organizations so hub→workload
+TGW RAM shares succeed.
+
+## tfvars
+
+Every stack:
+
+```bash frame="terminal"
+cp terraform.tfvars.example terraform.tfvars
+# set profiles + account IDs — do not commit terraform.tfvars
+```
+
+Hub stacks need **both** workload account IDs in `workload_account_ids`.
+
+<Aside type="note">
+  Auckland (<code>ap-southeast-6</code>) omits the <code>ec2messages</code>
+  VPC endpoint by design — Regions launched in 2024+ support
+  <code>ssmmessages</code> only. Akl spokes set
+  <code>ssm_endpoint_services = ["ssm", "ssmmessages"]</code>.
+</Aside>
+
+## Teaching path
+
+<Diagram
+  src={stages}
+  alt="Eight build stages left to right, with the two hub firewall flags shown underneath as three phases: mesh with both flags false, deny with the firewall on and rules off, allow with both true."
+  caption="Same rail as Architecture. Teardown follows Validate. Icons from aws-icons."
+/>
+
+Full `terraform apply` + vars. Prefer **not** `-target`. Teardown is
+[the last page](/deploy-and-operate/teardown/).
+
+## Next
+
+[Sydney hub](/deploy-and-operate/hub/sydney/)

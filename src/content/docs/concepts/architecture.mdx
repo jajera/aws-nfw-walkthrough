@@ -1,0 +1,82 @@
+---
+title: Architecture
+description: Dual hubs, dev/prod RAM spokes, TGW peering, staged Network Firewall.
+---
+
+import Tooltip from "@/components/Tooltip.astro";
+import Diagram from "@/components/Diagram.astro";
+import topology from "@/assets/diagrams/architecture-topology.svg?raw";
+import stages from "@/assets/diagrams/architecture-stages.svg?raw";
+
+## Overview
+
+Hub accounts own a <Tooltip term="tgw" label="Transit Gateway" /> and
+<Tooltip term="inspection-vpc" label="inspection VPC" /> per Region. **Dev** and
+**prod** workload accounts attach spokes via <Tooltip term="ram" label="RAM" />.
+Hubs peer with TGW. <Tooltip term="nfw" label="Network Firewall" /> is attached
+**after** the mesh works. Cross-Region inspection is
+<Tooltip term="double-inspect" label="double-inspect" />.
+
+<Diagram
+  src={topology}
+  alt="Sydney and Auckland Regions side by side. Each has a hub account with a Transit Gateway and an inspection VPC containing Network Firewall and its endpoint, RAM-shared to a dev and a prod workload account. The hubs are joined by TGW peering."
+  caption="Same shape in both Regions. The firewall is attached last, so this topology works as TGW-only first. Icons from aws-icons."
+/>
+
+## Build order
+
+<Diagram
+  src={stages}
+  alt="Eight build stages left to right, with the two hub firewall flags shown underneath as three phases: mesh with both flags false, deny with the firewall on and rules off, allow with both true."
+  caption="Hub peering is applied once for dev, then re-applied after the prod spokes exist. Icons from aws-icons."
+/>
+
+## CIDRs and ASNs
+
+| Item | Value |
+| ---- | ----- |
+| Sydney inspection | `10.255.0.0/24` |
+| Sydney dev / prod | `10.255.1.0/24` / `10.255.2.0/24` |
+| Auckland inspection | `10.254.0.0/24` |
+| Auckland dev / prod | `10.254.1.0/24` / `10.254.2.0/24` |
+| Sydney / Auckland ASN | `65001` / `65002` |
+
+## Stacks
+
+| Stack | Creates |
+| ----- | ------- |
+| `*/hub` | TGW, inspection VPC, inspection / no-inspection RTs, RAM to **dev + prod**, optional NFW |
+| `*/workload-dev` | Dev spoke + demo host |
+| `*/workload-prod` | Prod spoke + demo host |
+| `hub-peering` | TGW peer, remote spoke routes, private zone `lab.demo`, DHCP search domain |
+
+## Staged NFW
+
+Hub flags (persist in each hub `terraform.tfvars`), as phased in
+[Build order](#build-order) above:
+
+| Stage | `enable_network_firewall` | `firewall_rules_enabled` |
+| ----- | ------------------------- | ------------------------ |
+| Mesh | `false` | `false` |
+| Deny | `true` | `false` |
+| Allow | `true` | `true` |
+
+When NFW is off, spoke and peer associations use **no_inspection**. When NFW is
+on, spokes and the peer move to **inspection** — see
+[Inspection model](/concepts/inspection-model/).
+
+## Inspection today
+
+| Flow | Where it is inspected (NFW on) |
+| ---- | ------------------------------ |
+| Same-Region (e.g. Syd-dev ↔ Syd-prod, different accounts) | Local hub NFW once, **both directions through the same firewall** |
+| Cross-Region | **Both** hub NFWs (source and destination) |
+
+Details: [Inspection model](/concepts/inspection-model/). Hop-by-hop:
+[Traffic path](/concepts/traffic-path/).
+
+## Out of scope
+
+- Firewall Manager central policy
+- Cloud WAN
+- Multi-AZ / production hardening

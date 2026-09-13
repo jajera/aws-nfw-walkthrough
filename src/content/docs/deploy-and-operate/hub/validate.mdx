@@ -1,0 +1,149 @@
+---
+title: Validate
+description: Side-by-side check after both hubs are up (NFW still off).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+import mirror from "@/assets/diagrams/hub-validate-mirror.svg?raw";
+
+<Checklist
+  id="compare-hubs"
+  items={[
+    "Sydney and Auckland regional validates already passed",
+    "Spoke CIDR outputs are mirrors of each other",
+    "Both TGWs available (ASN 65001 / 65002)",
+    "Both hubs: enable_network_firewall=false",
+    "Ready for workload-dev Sydney",
+  ]}
+/>
+
+## Overview
+
+Joint gate after each hub’s own validate. Two mirrored hubs, **no** NFW yet.
+
+<Diagram
+  src={mirror}
+  alt="A rail showing validate Sydney, then validate Auckland, then this mirror gate, then dev workloads. Below, Sydney and Auckland side by side with their local and remote spoke CIDR lists swapped, joined by two equals signs, and both reporting enable_network_firewall false."
+  caption="Each hub's local list must equal the other's remote list. Both directions, or the mesh routes will not line up later. Icons from aws-icons."
+/>
+
+## Compare
+
+<Steps>
+
+1. Dump both output sets:
+
+   ```bash frame="terminal"
+   ( cd environment/sandbox/ap-southeast-2/hub && \
+     echo "=== Sydney ===" && \
+     terraform output -raw region && \
+     terraform output -raw transit_gateway_id && \
+     terraform output -raw inspection_vpc_cidr && \
+     terraform output -raw enable_network_firewall && \
+     terraform output local_spoke_cidrs && \
+     terraform output remote_spoke_cidrs )
+   ( cd environment/sandbox/ap-southeast-6/hub && \
+     echo "=== Auckland ===" && \
+     terraform output -raw region && \
+     terraform output -raw transit_gateway_id && \
+     terraform output -raw inspection_vpc_cidr && \
+     terraform output -raw enable_network_firewall && \
+     terraform output local_spoke_cidrs && \
+     terraform output remote_spoke_cidrs )
+   ```
+
+   ```text
+   === Sydney ===
+   ap-southeast-2
+   tgw-04fc7f3ccf224fdf2
+   10.255.0.0/24
+   false
+   tolist([
+     "10.255.1.0/24",
+     "10.255.2.0/24",
+   ])
+   tolist([
+     "10.254.1.0/24",
+     "10.254.2.0/24",
+   ])
+   === Auckland ===
+   ap-southeast-6
+   tgw-04db3776f3a795ce7
+   10.254.0.0/24
+   false
+   tolist([
+     "10.254.1.0/24",
+     "10.254.2.0/24",
+   ])
+   tolist([
+     "10.255.1.0/24",
+     "10.255.2.0/24",
+   ])
+   ```
+
+2. Assert spoke CIDR lists mirror:
+
+   ```bash frame="terminal"
+   SYD_LOCAL=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -json local_spoke_cidrs)
+   SYD_REMOTE=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -json remote_spoke_cidrs)
+   AKL_LOCAL=$(cd environment/sandbox/ap-southeast-6/hub && terraform output -json local_spoke_cidrs)
+   AKL_REMOTE=$(cd environment/sandbox/ap-southeast-6/hub && terraform output -json remote_spoke_cidrs)
+
+   test "$SYD_LOCAL" = "$AKL_REMOTE" && test "$AKL_LOCAL" = "$SYD_REMOTE" \
+     && echo "spoke CIDRs mirror OK" \
+     || echo "spoke CIDRs do NOT mirror"
+   ```
+
+   ```text
+   spoke CIDRs mirror OK
+   ```
+
+3. Both TGWs available:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   SYD_TGW=$(cd environment/sandbox/ap-southeast-2/hub && terraform output -raw transit_gateway_id)
+   AKL_TGW=$(cd environment/sandbox/ap-southeast-6/hub && terraform output -raw transit_gateway_id)
+
+   aws ec2 describe-transit-gateways --region ap-southeast-2 \
+     --transit-gateway-ids "$SYD_TGW" \
+     --query 'TransitGateways[0].{State:State,Asn:Options.AmazonSideAsn}' \
+     --output table
+
+   aws ec2 describe-transit-gateways --region ap-southeast-6 \
+     --transit-gateway-ids "$AKL_TGW" \
+     --query 'TransitGateways[0].{State:State,Asn:Options.AmazonSideAsn}' \
+     --output table
+   ```
+
+   ```text
+   |  Asn   |    State    |
+   |  65001 |  available  |
+
+   |  Asn   |    State    |
+   |  65002 |  available  |
+   ```
+
+4. NFW still off on both:
+
+   ```bash frame="terminal"
+   terraform -chdir=environment/sandbox/ap-southeast-2/hub output -raw enable_network_firewall
+   terraform -chdir=environment/sandbox/ap-southeast-6/hub output -raw enable_network_firewall
+   ```
+
+   ```text
+   false
+   false
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Peering and NFW come later. This gate only proves two healthy, mirrored hubs.
+</Aside>
+
+## Next
+
+[Sydney workload (dev)](/deploy-and-operate/workload/sydney/)

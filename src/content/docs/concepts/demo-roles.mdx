@@ -1,0 +1,60 @@
+---
+title: Demo roles
+description: Hub plus dev and prod workload accounts.
+---
+
+import Diagram from "@/components/Diagram.astro";
+import accounts from "@/assets/diagrams/demo-roles-accounts.svg?raw";
+
+## Accounts
+
+Three AWS accounts (one hub, two workloads):
+
+<Diagram
+  src={accounts}
+  alt="Matrix of three accounts down and two Regions across. Each hub cell holds a Transit Gateway, Network Firewall and RAM share with the inspection VPC CIDR and Region ASN. Each dev and prod cell holds a spoke VPC, demo host, CIDR and lab.demo name. The hub cells are joined by TGW peering, and arrows show the RAM share reaching both workload rows."
+  caption="Every account spans both Regions. Workloads only ever attach to their own Region's hub. Icons from aws-icons."
+/>
+
+| Role | Region | Account | Owns |
+| ---- | ------ | ------- | ---- |
+| `syd-hub` / `akl-hub` | `ap-southeast-2` / `ap-southeast-6` | Hub | TGW, inspection VPC, NFW (staged), RAM share |
+| `syd-dev` / `akl-dev` | same | Dev | Dev spoke + demo host |
+| `syd-prod` / `akl-prod` | same | Prod | Prod spoke + demo host |
+
+Hub-to-hub is **TGW peering**. Workload-to-hub is **RAM** share of the regional
+TGW, then VPC attachment accepted in the hub account. Workloads never attach to
+the remote Region’s TGW. With NFW on, cross-Region east-west is
+**double-inspected** (both hubs); same-Region stays on the local hub only — see
+[Inspection model](/concepts/inspection-model/).
+
+## Profiles
+
+Provider profile names are **not** hard-coded in Terraform defaults. Copy each
+stack `terraform.tfvars.example` → `terraform.tfvars` and set:
+
+| Stack | Profiles / IDs |
+| ----- | -------------- |
+| `*/hub` | Hub profile; `workload_account_ids` = **dev and prod** account IDs |
+| `*/workload-dev` | Dev workload profile + hub profile |
+| `*/workload-prod` | Prod workload profile + hub profile |
+| `hub-peering` | Hub + dev (+ prod profiles when `enable_prod_workloads=true`) |
+
+Keep real profile names in local tfvars only (gitignored). Docs use
+`YOUR_HUB_PROFILE`, `YOUR_DEV_WORKLOAD_PROFILE`, `YOUR_PROD_WORKLOAD_PROFILE`.
+
+## Layout
+
+```text
+environment/sandbox/
+  ap-southeast-2/hub
+  ap-southeast-2/workload-dev
+  ap-southeast-2/workload-prod
+  ap-southeast-2/hub-peering
+  ap-southeast-6/hub
+  ap-southeast-6/workload-dev
+  ap-southeast-6/workload-prod
+```
+
+Cross-stack wiring uses `terraform_remote_state` against sibling
+`terraform.tfstate` files under those paths.

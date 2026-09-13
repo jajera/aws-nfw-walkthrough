@@ -1,0 +1,167 @@
+---
+title: Validate
+description: Joint gate after both hub-peering regional validates — peer, DNS, both sides ready for Prove.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+import gate from "@/assets/diagrams/hub-peering-validate.svg?raw";
+
+<Checklist
+  id="hub-peering-validate"
+  items={[
+    "Sydney and Auckland hub-peering validates already passed",
+    "All four A records present; spoke CIDR lists match hubs",
+    "Peering available both Regions; peer on no_inspection (NFW still off)",
+    "Ready for Prove mesh (inter-Region without NFW)",
+  ]}
+/>
+
+## Overview
+
+Joint gate after each Region’s hub-peering checks. Requires
+`enable_prod_workloads=true` (all four A records). Then
+[Prove mesh](/deploy-and-operate/prove/) before attaching NFW.
+
+<Diagram
+  src={gate}
+  alt="A rail showing Sydney checks, Auckland checks, this peering gate, then Prove mesh. Below, four assertion cards: one attachment available in both Regions, the peer still associated to no_inspection on both sides, four A records in lab.demo matching live host IPs, and the peering CIDR lists matching each hub's local_spoke_cidrs."
+  caption="Four assertions, one per step below. Icons from aws-icons."
+/>
+
+## Compare
+
+<Steps>
+
+1. Dump stack outputs:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/hub-peering
+   echo "=== hub-peering ==="
+   terraform output -raw peering_attachment_id
+   terraform output -raw dns_zone_name
+   terraform output -raw syd_dev_hostname
+   terraform output -raw akl_dev_hostname
+   terraform output -raw syd_prod_hostname
+   terraform output -raw akl_prod_hostname
+   terraform output syd_spoke_cidrs
+   terraform output akl_spoke_cidrs
+   ```
+
+   ```text
+   === hub-peering ===
+   tgw-attach-0ef352cc0c6405026
+   lab.demo
+   syd-dev.lab.demo
+   akl-dev.lab.demo
+   syd-prod.lab.demo
+   akl-prod.lab.demo
+   tolist([
+     "10.255.1.0/24",
+     "10.255.2.0/24",
+   ])
+   tolist([
+     "10.254.1.0/24",
+     "10.254.2.0/24",
+   ])
+   ```
+
+2. Assert spoke CIDR lists still mirror the hubs:
+
+   ```bash frame="terminal"
+   SYD_LOCAL=$(cd ../hub && terraform output -json local_spoke_cidrs)
+   AKL_LOCAL=$(cd ../../ap-southeast-6/hub && terraform output -json local_spoke_cidrs)
+   SYD_PEER=$(terraform output -json syd_spoke_cidrs)
+   AKL_PEER=$(terraform output -json akl_spoke_cidrs)
+
+   test "$SYD_LOCAL" = "$SYD_PEER" && test "$AKL_LOCAL" = "$AKL_PEER" \
+     && echo "peering spoke CIDRs match hubs OK" \
+     || echo "peering spoke CIDRs do NOT match hubs"
+   ```
+
+   ```text
+   peering spoke CIDRs match hubs OK
+   ```
+
+3. All four A records vs live host IPs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   SYD_DEV_IP=$(cd ../workload-dev && terraform output -raw test_host_private_ip)
+   AKL_DEV_IP=$(cd ../../ap-southeast-6/workload-dev && terraform output -raw test_host_private_ip)
+   SYD_PROD_IP=$(cd ../workload-prod && terraform output -raw test_host_private_ip)
+   AKL_PROD_IP=$(cd ../../ap-southeast-6/workload-prod && terraform output -raw test_host_private_ip)
+   ZONE=$(aws route53 list-hosted-zones-by-name --dns-name lab.demo. \
+     --query 'HostedZones[?Config.PrivateZone==`true`].Id' --output text | sed 's|/hostedzone/||' | head -1)
+
+   aws route53 list-resource-record-sets \
+     --hosted-zone-id "$ZONE" \
+     --query "ResourceRecordSets[?Type=='A'].[Name,ResourceRecords[0].Value]" \
+     --output text
+
+   echo "expect syd-dev=$SYD_DEV_IP akl-dev=$AKL_DEV_IP syd-prod=$SYD_PROD_IP akl-prod=$AKL_PROD_IP"
+   ```
+
+   ```text
+   akl-dev.lab.demo.	10.254.1.31
+   akl-prod.lab.demo.	10.254.2.22
+   syd-dev.lab.demo.	10.255.1.58
+   syd-prod.lab.demo.	10.255.2.69
+   expect syd-dev=10.255.1.58 akl-dev=10.254.1.31 syd-prod=10.255.2.69 akl-prod=10.254.2.22
+   ```
+
+4. Peering available in both Regions:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   PEER=$(terraform output -raw peering_attachment_id)
+
+   aws ec2 describe-transit-gateway-attachments --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].State' --output text
+
+   aws ec2 describe-transit-gateway-attachments --region ap-southeast-6 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].State' --output text
+   ```
+
+   ```text
+   available
+   available
+   ```
+
+5. Peer assoc is **no_inspection** on both sides (NFW not attached yet):
+
+   ```bash frame="terminal"
+   PEER=$(terraform output -raw peering_attachment_id)
+   SYD_NO=$(cd ../hub && terraform output -raw no_inspection_route_table_id)
+   AKL_NO=$(cd ../../ap-southeast-6/hub && terraform output -raw no_inspection_route_table_id)
+   SYD_ASSOC=$(aws ec2 describe-transit-gateway-attachments --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].Association.TransitGatewayRouteTableId' --output text)
+   AKL_ASSOC=$(aws ec2 describe-transit-gateway-attachments --region ap-southeast-6 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].Association.TransitGatewayRouteTableId' --output text)
+
+   echo "syd assoc=$SYD_ASSOC (expect no_insp=$SYD_NO)"
+   echo "akl assoc=$AKL_ASSOC (expect no_insp=$AKL_NO)"
+   ```
+
+   ```text
+   syd assoc=tgw-rtb-00be3893a2741a265 (expect no_insp=tgw-rtb-00be3893a2741a265)
+   akl assoc=tgw-rtb-0de1397f3982b6434 (expect no_insp=tgw-rtb-0de1397f3982b6434)
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Inter-Region checks are next — [Prove mesh](/deploy-and-operate/prove/) —
+  still <strong>without</strong> NFW. The peer moves onto the inspection RTs
+  only when the hub firewalls are on; proving <em>where</em> inspection happens
+  is [NFW → Validate](/deploy-and-operate/nfw/validate/) after Allow.
+</Aside>
+
+## Next
+
+[Prove mesh](/deploy-and-operate/prove/)

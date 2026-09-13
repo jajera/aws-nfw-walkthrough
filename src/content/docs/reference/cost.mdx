@@ -1,0 +1,30 @@
+---
+title: Cost
+description: What bills while the lab is up.
+---
+
+## While running
+
+| Item | Why it costs |
+| ---- | ------------ |
+| Transit Gateway attachments | Inspection VPC + each spoke + peering (per Region) |
+| Network Firewall endpoints | **1 AZ × 2 hubs** — hourly even when idle |
+| NFW data processing | Per GB through each endpoint; double-inspect meters a cross-Region flow on **both** hubs |
+| NAT Gateways | Spokes when demo hosts are enabled |
+| EC2 | Four demo hosts (dev + prod × Syd + Akl) |
+| Cross-Region | TGW peering bytes |
+
+Indicative NFW list (Region rates vary): ~**$0.395**/endpoint-hour + ~**$0.065**/GB.
+See [NFW pricing](https://aws.amazon.com/network-firewall/pricing/).
+
+## Not on the bill
+
+| Item | Note |
+| ---- | ---- |
+| Stateful capacity (~**130** / 30,000) | Quota reservation only |
+| Suricata line count / IP set size | Affects the **20 groups** quota, not price |
+
+## Controls
+
+- Keep **1 AZ** (lab default)
+- Destroy when idle ([Teardown](/deploy-and-operate/teardown/))

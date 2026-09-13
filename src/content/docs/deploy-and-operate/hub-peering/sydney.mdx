@@ -1,0 +1,218 @@
+---
+title: Sydney
+description: Apply hub peering and validate the Sydney side (TGW peer, remote route, DNS, DHCP).
+---
+
+import Checklist from "@/components/Checklist.astro";
+import Diagram from "@/components/Diagram.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+import peeringStack from "@/assets/diagrams/hub-peering-stack.svg?raw";
+
+<Checklist
+  id="sydney-hub-peering"
+  items={[
+    "Workloads Validate passed",
+    "hub-peering terraform apply succeeded",
+    "Sydney peering view available",
+    "Remote Akl spoke route active via peer",
+    "syd-dev.lab.demo A record matches Syd host",
+    "Syd spoke DHCP search domain lab.demo",
+  ]}
+/>
+
+## Overview
+
+One Terraform stack under `ap-southeast-2/hub-peering` creates **both** sides of
+TGW peering, static remote spoke routes, private zone `lab.demo`, cross-account
+VPC association, and DHCP search domains.
+
+While hubs still have `enable_network_firewall=false`, the peer stays on
+**no_inspection** (passthrough mesh). Re-applying this stack **after** NFW is
+attached moves the peer onto the inspection RTs for **double-inspect** — see
+[Inspection model](/concepts/inspection-model/).
+
+Apply here (Sydney path). Validate **this Region’s** peer view, route, and DNS
+before Auckland. After both regional pages, do
+[Hub peering → Validate](/deploy-and-operate/hub-peering/validate/).
+
+<Diagram
+  src={peeringStack}
+  alt="One Terraform stack creating a single TGW peering attachment that exists in both Regions, with Sydney as requester and Auckland as accepter. Each Region gets the peer on its no_inspection route table with static routes to the other Region's spokes, the lab.demo private zone associated to its spoke VPC, and a DHCP option set carrying the lab.demo search domain."
+  caption="You are applying and validating the left-hand column. The right-hand column lands in the same apply. Icons from aws-icons."
+/>
+
+Apply only after [Workloads (dev) → Validate](/deploy-and-operate/workload/validate/).
+If [workload-prod](/deploy-and-operate/workload-prod/sydney/) is already up, set
+`enable_prod_workloads=true` on this apply; otherwise leave `false` and re-apply
+after prod (required before [Hub peering → Validate](/deploy-and-operate/hub-peering/validate/)).
+
+## Apply
+
+<Steps>
+
+1. Configure and apply:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/hub-peering
+   cp terraform.tfvars.example terraform.tfvars
+   # profiles; enable_prod_workloads=true if prod stacks exist
+   terraform init
+   terraform apply
+   ```
+
+2. Capture outputs:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_HUB_PROFILE
+   PEER=$(terraform output -raw peering_attachment_id)
+   terraform output -raw peering_attachment_id
+   terraform output -raw syd_dev_hostname
+   terraform output -raw akl_dev_hostname
+   terraform output -raw syd_prod_hostname
+   terraform output -raw akl_prod_hostname
+   terraform output syd_spoke_cidrs
+   terraform output akl_spoke_cidrs
+   ```
+
+   ```text
+   tgw-attach-0ef352cc0c6405026
+   syd-dev.lab.demo
+   akl-dev.lab.demo
+   syd-prod.lab.demo      # null until enable_prod_workloads=true
+   akl-prod.lab.demo
+   tolist([ "10.255.1.0/24", "10.255.2.0/24" ])   # prod CIDR after enable
+   tolist([ "10.254.1.0/24", "10.254.2.0/24" ])
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  Peering accept can take a few minutes. Wait for apply to finish before
+  treating Sydney as validated. Peer stays on <code>no_inspection</code> while
+  NFW is off; re-apply after NFW attach to move it onto inspection.
+</Aside>
+
+## Validate
+
+<Steps>
+
+1. Sydney peering attachment (requester → Auckland TGW):
+
+   ```bash frame="terminal"
+   aws ec2 describe-transit-gateway-peering-attachments \
+     --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayPeeringAttachments[0].{State:State,Local:RequesterTgwInfo.TransitGatewayId,Remote:AccepterTgwInfo.TransitGatewayId}' \
+     --output table
+   ```
+
+   ```text
+   -----------------------------------------------------------------
+   |           DescribeTransitGatewayPeeringAttachments            |
+   +------------------------+-------------------------+------------+
+   |          Local         |         Remote          |   State    |
+   +------------------------+-------------------------+------------+
+   |  tgw-04fc7f3ccf224fdf2 |  tgw-04db3776f3a795ce7  |  available |
+   +------------------------+-------------------------+------------+
+   ```
+
+2. Peer attachment association (**no_inspection** while NFW off):
+
+   ```bash frame="terminal"
+   SYD_NO=$(cd ../hub && terraform output -raw no_inspection_route_table_id)
+
+   aws ec2 describe-transit-gateway-attachments \
+     --region ap-southeast-2 \
+     --transit-gateway-attachment-ids "$PEER" \
+     --query 'TransitGatewayAttachments[0].{State:State,Assoc:Association.TransitGatewayRouteTableId}' \
+     --output table
+
+   echo "expect Assoc == $SYD_NO (passthrough)"
+   ```
+
+   ```text
+   --------------------------------------------
+   |     DescribeTransitGatewayAttachments    |
+   +----------------------------+-------------+
+   |            Assoc           |    State    |
+   +----------------------------+-------------+
+   |  tgw-rtb-00be3893a2741a265 |  available  |
+   +----------------------------+-------------+
+   expect Assoc == tgw-rtb-00be3893a2741a265 (passthrough)
+   ```
+
+3. Static routes to Auckland spokes via the peer (no-inspection RT):
+
+   ```bash frame="terminal"
+   SYD_NO=$(cd ../hub && terraform output -raw no_inspection_route_table_id)
+
+   aws ec2 search-transit-gateway-routes \
+     --region ap-southeast-2 \
+     --transit-gateway-route-table-id "$SYD_NO" \
+     --filters "Name=route-search.subnet-of-match,Values=10.254.0.0/16" \
+     --query 'Routes[].{Dest:DestinationCidrBlock,Attach:TransitGatewayAttachments[0].TransitGatewayAttachmentId,State:State}' \
+     --output table
+   ```
+
+   ```text
+   -------------------------------------------------------------
+   |                SearchTransitGatewayRoutes                 |
+   +-------------------------------+-----------------+---------+
+   |            Attach             |      Dest       |  State  |
+   +-------------------------------+-----------------+---------+
+   |  tgw-attach-0ef352cc0c6405026 |  10.254.1.0/24  |  active |
+   |  tgw-attach-0ef352cc0c6405026 |  10.254.2.0/24  |  active |
+   +-------------------------------+-----------------+---------+
+   ```
+
+4. `syd-dev.lab.demo` A record matches the Sydney host IP:
+
+   ```bash frame="terminal"
+   SYD_IP=$(cd ../workload-dev && terraform output -raw test_host_private_ip)
+   ZONE=$(aws route53 list-hosted-zones-by-name --dns-name lab.demo. \
+     --query 'HostedZones[?Config.PrivateZone==`true`].Id' --output text | sed 's|/hostedzone/||' | head -1)
+
+   aws route53 list-resource-record-sets \
+     --hosted-zone-id "$ZONE" \
+     --query "ResourceRecordSets[?Name=='syd-dev.lab.demo.'].[Name,ResourceRecords[0].Value]" \
+     --output text
+
+   echo "expect A == $SYD_IP"
+   ```
+
+   ```text
+   syd-dev.lab.demo.	10.255.1.58
+   expect A == 10.255.1.58
+   ```
+
+5. Sydney spoke DHCP search domain:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   SYD_VPC=$(cd ../workload-dev && terraform output -raw vpc_id)
+   DHCP=$(aws ec2 describe-vpcs --region ap-southeast-2 --vpc-ids "$SYD_VPC" \
+     --query 'Vpcs[0].DhcpOptionsId' --output text)
+
+   aws ec2 describe-dhcp-options --region ap-southeast-2 --dhcp-options-ids "$DHCP" \
+     --query 'DhcpOptions[0].DhcpConfigurations[?Key==`domain-name` || Key==`domain-name-servers`]' \
+     --output json
+   ```
+
+   ```text
+   [
+       {
+           "Key": "domain-name",
+           "Values": [{ "Value": "lab.demo" }]
+       },
+       {
+           "Key": "domain-name-servers",
+           "Values": [{ "Value": "AmazonProvidedDNS" }]
+       }
+   ]
+   ```
+
+</Steps>
+
+## Next
+
+[Auckland](/deploy-and-operate/hub-peering/auckland/)

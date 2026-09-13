@@ -1,0 +1,61 @@
+---
+title: Teardown
+description: Destroy order for peering, workloads, then hubs.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="teardown"
+  items={[
+    "hub-peering destroyed",
+    "Prod and dev workloads destroyed",
+    "Both hubs destroyed",
+  ]}
+/>
+
+## Order
+
+```text
+1. hub-peering
+2. workload-prod (both Regions)
+3. workload-dev (both Regions)
+4. hubs (Auckland, then Sydney)
+```
+
+Destroy hubs only after spokes and peering are gone. Full teardown often takes
+**30–60+ minutes**.
+
+## Steps
+
+<Steps>
+
+1. Peering:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/hub-peering
+   terraform destroy
+   ```
+
+2. Workloads:
+
+   ```bash frame="terminal"
+   cd ../workload-prod && terraform destroy
+   cd ../../ap-southeast-6/workload-prod && terraform destroy
+   cd ../../ap-southeast-2/workload-dev && terraform destroy
+   cd ../../ap-southeast-6/workload-dev && terraform destroy
+   ```
+
+3. Hubs:
+
+   ```bash frame="terminal"
+   cd ../hub && terraform destroy
+   cd ../../ap-southeast-2/hub && terraform destroy
+   ```
+
+</Steps>
+
+<Aside type="caution">
+  Destroying hubs first leaves orphaned spoke attachments and fails.
+</Aside>

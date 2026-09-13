@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 252" width="100%" role="img"
+     aria-label="Cross-Region double-inspect: each direction leaves through its local firewall, crosses TGW peering, and is inspected again by the destination hub's firewall before reaching the spoke"
+     font-family="Manrope, Open Sans, Segoe UI, sans-serif">
+  <title>Cross Region — both hubs inspect, in each direction</title>
+  <desc>Two lanes of chips over Region bands. The upper lane runs left to right for syd-dev to akl-dev: the Sydney spoke, the Sydney Transit Gateway on its inspection route table, the Sydney Network Firewall, TGW peering, the Auckland Transit Gateway on its inspection route table, the Auckland Network Firewall, then the Auckland spoke reached via no_inspection. The lower lane runs right to left for akl-dev to syd-dev through the mirror of the same chips. Both firewall chips are highlighted in each lane, so each direction crosses two firewalls.</desc>
+
+<!--
+  Icons are official AWS Architecture Icons, inlined as <symbol> from
+  https://jajera.github.io/aws-icons/ (browse, copy, strip the Sketch id=""
+  attributes so ids stay unique in the page).
+  Colours come from the .diagram-* classes in src/styles/splash-overrides.css:
+  presentation attributes here are the light palette, the CSS overrides dark.
+-->
+  <defs>
+    <marker id="icr-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" class="diagram-edge-fill" fill="#7a969e"/>
+    </marker>
+    <symbol id="icr-aws-nfw" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#DD344C">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <g transform="translate(12.000000, 12.300000)" fill="#FFFFFF">
+      <path d="M54,45.7046767 L45,45.7046767 L42,45.7046767 L42,39.7046767 L51,39.7046767 L54,39.7046767 L54,45.7046767 Z M44,53.7046767 L32,53.7046767 L32,47.7046767 L41,47.7046767 L44,47.7046767 L44,53.7046767 Z M22.591,51.6906767 C18.422,51.6906767 14.595,49.5876767 12.354,46.0656767 C10.565,43.2556767 10.534,39.6286767 12.275,36.5946767 L12.33,36.4966767 C14.422,33.3216767 13.672,28.9106767 13.004,26.4776767 C14.923,27.4636767 16.661,29.9746767 17.278,31.0816767 C17.47,31.4236767 17.85,31.6226767 18.231,31.5926767 C18.622,31.5616767 18.958,31.3066767 19.092,30.9386767 C21.009,25.6726767 19.723,21.7846767 18.314,19.4556767 C19.568,19.8886767 21.1,20.5406767 22.616,21.4966767 C27.231,24.4066767 29.571,28.6586767 29.571,34.1336767 C29.571,34.4056767 29.683,34.6666767 29.88,34.8556767 C30.076,35.0436767 30.341,35.1396767 30.614,35.1326767 C31.808,35.0806767 33.963,34.1636767 34.96,31.2606767 C34.985,31.3966767 35,31.5446767 35,31.7046767 L35,37.7046767 L26,37.7046767 C25.447,37.7046767 25,38.1526767 25,38.7046767 L25,46.7046767 C25,47.2566767 25.447,47.7046767 26,47.7046767 L30,47.7046767 L30,49.2546767 C28.271,50.8016767 25.605,51.6906767 22.591,51.6906767 L22.591,51.6906767 Z M6.168,33.9476767 C4.267,32.6596767 2,30.2216767 2,25.9206767 C2,19.9646767 6.144,18.0116767 8.613,17.3776767 C9.076,17.2586767 9.391,16.8276767 9.362,16.3506767 L9.265,14.7116767 C9.265,9.96667668 12.533,4.86067668 16.706,3.08767668 C23.925,0.0236766813 29.041,4.05267668 30.904,5.92867668 C32.423,7.45567668 33.607,9.40767668 34.425,11.7276767 C34.548,12.0776767 34.854,12.3296767 35.221,12.3846767 C35.584,12.4396767 35.954,12.2866767 36.173,11.9886767 C37.409,10.3106767 39.541,9.61167668 41.47,10.2446767 C43.64,10.9576767 44.891,13.0746767 44.91,16.0576767 L44.904,16.0946767 C44.828,16.6296767 45.191,17.1296767 45.725,17.2216767 C47.606,17.5456767 53.745,19.1366767 53.745,26.0036767 C53.745,28.2046767 53.158,30.0316767 52,31.4616767 L52,30.7046767 C52,30.1526767 51.553,29.7046767 51,29.7046767 L36.494,29.7046767 C35.876,28.5846767 34.902,28.1076767 34.843,28.0796767 C34.55,27.9466767 34.21,27.9636767 33.932,28.1216767 C33.653,28.2816767 33.468,28.5656767 33.435,28.8856767 C33.188,31.2336767 32.266,32.2866767 31.524,32.7566767 C31.049,25.8506767 27.028,21.8976767 23.622,19.7666767 C19.752,17.3456767 15.925,16.7396767 15.764,16.7146767 C15.317,16.6446767 14.882,16.8866767 14.699,17.2996767 C14.517,17.7126767 14.635,18.1976767 14.985,18.4816767 C15.172,18.6336767 19.139,21.9486767 17.794,28.2496767 C16.457,26.4736767 14.156,24.0706767 11.495,24.0706767 C11.163,24.0706767 10.854,24.2356767 10.667,24.5106767 C10.481,24.7856767 10.443,25.1346767 10.567,25.4426767 C10.591,25.5026767 12.785,31.0996767 11,34.7826767 L11,34.7046767 L8.635,34.7046767 C7.753,34.7046767 6.9,34.4426767 6.168,33.9476767 L6.168,33.9476767 Z M41,37.7046767 L37,37.7046767 L37,31.7046767 L50,31.7046767 L50,37.7046767 L41,37.7046767 Z M40,45.7046767 L31,45.7046767 L27,45.7046767 L27,39.7046767 L36,39.7046767 L40,39.7046767 L40,45.7046767 Z M55,37.7046767 L52,37.7046767 L52,34.2316767 C54.446,32.3146767 55.745,29.4766767 55.745,26.0036767 C55.745,18.4186767 49.747,16.0946767 46.89,15.4196767 C46.684,11.8926767 44.924,9.27467668 42.094,8.34467668 C39.877,7.61667668 37.482,8.11367668 35.722,9.57467668 C34.852,7.61167668 33.712,5.91567668 32.322,4.51767668 C27.842,0.0116766813 21.713,-1.21232332 15.925,1.24667668 C10.987,3.34367668 7.265,9.13267668 7.267,14.7706767 L7.319,15.6736767 C4.624,16.5596767 0,19.0796767 0,25.9206767 C0,31.3716767 3.162,34.3266767 5.047,35.6036767 C6.111,36.3236767 7.353,36.7046767 8.635,36.7046767 L9.999,36.7046767 C8.475,40.1386767 8.691,44.0356767 10.666,47.1396767 C13.276,51.2416767 17.734,53.6906767 22.591,53.6906767 C25.41,53.6906767 28.002,52.9976767 30,51.7516767 L30,54.7046767 C30,55.2566767 30.447,55.7046767 31,55.7046767 L45,55.7046767 C45.553,55.7046767 46,55.2566767 46,54.7046767 L46,47.7046767 L55,47.7046767 C55.553,47.7046767 56,47.2566767 56,46.7046767 L56,38.7046767 C56,38.1526767 55.553,37.7046767 55,37.7046767 L55,37.7046767 Z"></path>
+      </g>
+      </g>
+    </symbol>
+    <symbol id="icr-aws-tgw" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#8C4FFF">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <path d="M43.23,64.784 C44.303,63.866 45,62.519 45,61 C45,58.585 43.279,56.566 41,56.101 L41,47.93 C44.611,47.477 47.476,44.611 47.93,41 L56.101,41 C56.565,43.279 58.585,45 61,45 C62.519,45 63.866,44.304 64.784,43.23 C63.331,54.435 54.435,63.331 43.23,64.784 M15.215,43.23 C16.133,44.304 17.48,45 19,45 C21.414,45 23.434,43.279 23.898,41 L32.069,41 C32.523,44.611 35.388,47.477 39,47.93 L39,56.101 C36.72,56.566 35,58.585 35,61 C35,62.519 35.696,63.866 36.769,64.784 C25.564,63.331 16.668,54.435 15.215,43.23 M22,40 C22,41.654 20.654,43 19,43 C17.345,43 16,41.654 16,40 C16,38.346 17.345,37 19,37 C20.654,37 22,38.346 22,40 M36.769,15.216 C35.696,16.134 35,17.48 35,19 C35,21.414 36.72,23.434 39,23.899 L39,32.069 C35.388,32.523 32.523,35.388 32.069,39 L23.898,39 C23.434,36.721 21.414,35 19,35 C17.48,35 16.133,35.696 15.215,36.769 C16.668,25.564 25.564,16.669 36.769,15.216 M40,16 C41.654,16 43,17.346 43,19 C43,20.654 41.654,22 40,22 C38.345,22 37,20.654 37,19 C37,17.346 38.345,16 40,16 M40,46 C36.691,46 34,43.308 34,40 C34,36.691 36.691,34 40,34 C43.308,34 46,36.691 46,40 C46,43.308 43.308,46 40,46 M40,64 C38.345,64 37,62.654 37,61 C37,59.346 38.345,58 40,58 C41.654,58 43,59.346 43,61 C43,62.654 41.654,64 40,64 M64,40 C64,41.654 62.654,43 61,43 C59.345,43 58,41.654 58,40 C58,38.346 59.345,37 61,37 C62.654,37 64,38.346 64,40 M64.784,36.769 C63.866,35.696 62.519,35 61,35 C58.585,35 56.565,36.721 56.101,39 L47.93,39 C47.476,35.388 44.611,32.523 41,32.069 L41,23.899 C43.279,23.434 45,21.414 45,19 C45,17.48 44.303,16.134 43.23,15.216 C54.435,16.669 63.331,25.564 64.784,36.769 M40,13 C25.112,13 13,25.112 13,40 C13,54.888 25.112,67 40,67 C54.887,67 67,54.888 67,40 C67,25.112 54.887,13 40,13" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="icr-aws-ec2" viewBox="0 0 80 80">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <g fill="#ED7100">
+      <rect x="0" y="0" width="80" height="80"></rect>
+      </g>
+      <path d="M27,53 L52,53 L52,28 L27,28 L27,53 Z M54,28 L58,28 L58,30 L54,30 L54,34 L58,34 L58,36 L54,36 L54,39 L58,39 L58,41 L54,41 L54,45 L58,45 L58,47 L54,47 L54,51 L58,51 L58,53 L54,53 L54,53.136 C54,54.164 53.164,55 52.136,55 L52,55 L52,59 L50,59 L50,55 L46,55 L46,59 L44,59 L44,55 L41,55 L41,59 L39,59 L39,55 L35,55 L35,59 L33,59 L33,55 L29,55 L29,59 L27,59 L27,55 L26.864,55 C25.836,55 25,54.164 25,53.136 L25,53 L22,53 L22,51 L25,51 L25,47 L22,47 L22,45 L25,45 L25,41 L22,41 L22,39 L25,39 L25,36 L22,36 L22,34 L25,34 L25,30 L22,30 L22,28 L25,28 L25,27.864 C25,26.836 25.836,26 26.864,26 L27,26 L27,22 L29,22 L29,26 L33,26 L33,22 L35,22 L35,26 L39,26 L39,22 L41,22 L41,26 L44,26 L44,22 L46,22 L46,26 L50,26 L50,22 L52,22 L52,26 L52.136,26 C53.164,26 54,26.836 54,27.864 L54,28 Z M41,65.876 C41,65.944 40.944,66 40.876,66 L14.124,66 C14.056,66 14,65.944 14,65.876 L14,39.124 C14,39.056 14.056,39 14.124,39 L20,39 L20,37 L14.124,37 C12.953,37 12,37.953 12,39.124 L12,65.876 C12,67.047 12.953,68 14.124,68 L40.876,68 C42.047,68 43,67.047 43,65.876 L43,61 L41,61 L41,65.876 Z M68,14.124 L68,40.876 C68,42.047 67.047,43 65.876,43 L60,43 L60,41 L65.876,41 C65.944,41 66,40.944 66,40.876 L66,14.124 C66,14.056 65.944,14 65.876,14 L39.124,14 C39.056,14 39,14.056 39,14.124 L39,20 L37,20 L37,14.124 C37,12.953 37.953,12 39.124,12 L65.876,12 C67.047,12 68,12.953 68,14.124 L68,14.124 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+    <symbol id="icr-aws-peering" viewBox="0 0 48 48">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <path d="M30.6055,25.6368 C30.6055,25.2538 30.6055,24.2358 28.9355,23.8938 C28.4915,23.8028 28.1645,23.4248 28.1375,22.9718 C28.0995,22.3148 27.8295,21.9068 27.4315,21.9068 C27.2485,21.9068 27.0725,22.0008 26.9485,22.1648 C26.7285,22.4588 26.3685,22.6078 26.0015,22.5548 C25.6375,22.4998 25.3335,22.2518 25.2085,21.9068 C25.0125,21.3658 24.7265,20.9008 24.3815,20.5608 C24.0655,20.2468 23.3415,19.6688 22.3165,19.6688 C21.9565,19.6688 21.5585,19.7408 21.1285,19.9188 C20.2085,20.3038 19.4595,21.4568 19.4595,22.4898 C19.4595,22.6118 19.4665,22.7288 19.4805,22.8458 C19.5405,23.3458 19.2185,23.8108 18.7315,23.9338 C17.8465,24.1568 17.3975,24.7208 17.3975,25.6118 L17.4025,25.7578 C17.4475,26.5858 18.4185,27.3468 19.4385,27.3468 L28.8285,27.3468 C30.6055,27.3468 30.6055,26.0598 30.6055,25.6368 L30.6055,25.6368 Z M32.6055,25.6368 C32.6055,28.3178 30.6755,29.3048 28.9765,29.3458 C28.9595,29.3468 28.9425,29.3468 28.9245,29.3468 L19.4385,29.3468 C17.3555,29.3468 15.5085,27.7498 15.4055,25.8598 C15.4005,25.7738 15.3975,25.6968 15.3975,25.6118 C15.3975,24.0768 16.1565,22.8738 17.4645,22.2678 C17.5605,20.5108 18.7725,18.7358 20.3585,18.0738 C22.2795,17.2768 24.3065,17.6718 25.7885,19.1388 C26.0665,19.4128 26.3145,19.7238 26.5315,20.0698 C27.7795,19.5998 29.5565,20.1578 30.0285,22.1208 C31.6755,22.6828 32.6055,23.9348 32.6055,25.6368 L32.6055,25.6368 Z M44.0015,24.0008 C44.0015,12.9728 35.0295,3.9998 24.0015,3.9998 C12.9725,3.9998 4.0005,12.9728 4.0005,24.0008 C4.0005,35.0298 12.9725,44.0018 24.0015,44.0018 C35.0295,44.0018 44.0015,35.0298 44.0015,24.0008 L44.0015,24.0008 Z M46.0015,24.0008 C46.0015,36.1328 36.1325,46.0018 24.0015,46.0018 C11.8695,46.0018 2.0005,36.1328 2.0005,24.0008 C2.0005,11.8688 11.8695,1.9998 24.0015,1.9998 C36.1325,1.9998 46.0015,11.8688 46.0015,24.0008 L46.0015,24.0008 Z M11.6735,20.3638 L10.2595,18.9498 L5.9145,23.2938 C5.7265,23.4818 5.6215,23.7358 5.6215,24.0008 C5.6215,24.2668 5.7265,24.5208 5.9145,24.7078 L10.2595,29.0538 L11.6735,27.6398 L9.0355,25.0008 L13.9905,25.0008 L13.9905,23.0008 L9.0355,23.0008 L11.6735,20.3638 Z M42.0885,23.2938 L37.7435,18.9498 L36.3295,20.3638 L38.9675,23.0008 L33.9855,23.0008 L33.9855,25.0008 L38.9675,25.0008 L36.3295,27.6398 L37.7435,29.0538 L42.0885,24.7078 C42.2765,24.5208 42.3815,24.2668 42.3815,24.0008 C42.3815,23.7358 42.2765,23.4818 42.0885,23.2938 L42.0885,23.2938 Z M25.0015,38.9678 L25.0015,30.9758 L23.0015,30.9758 L23.0015,38.9678 L20.3635,36.3288 L18.9495,37.7428 L23.2935,42.0888 C23.4815,42.2768 23.7355,42.3818 24.0015,42.3818 C24.2665,42.3818 24.5205,42.2768 24.7085,42.0888 L29.0535,37.7428 L27.6395,36.3288 L25.0015,38.9678 Z M20.3635,11.6728 L18.9495,10.2588 L23.2935,5.9138 C23.6845,5.5238 24.3175,5.5238 24.7085,5.9138 L29.0535,10.2588 L27.6395,11.6728 L25.0015,9.0348 L25.0015,16.2748 L23.0015,16.2748 L23.0015,9.0348 L20.3635,11.6728 Z" fill="#8C4FFF"></path>
+      </g>
+    </symbol>
+    <symbol id="icr-grp-region" viewBox="0 0 40 40">
+      <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <rect fill="#00A4A6" x="0" y="0" width="40" height="40"></rect>
+      <path d="M14,20.026 L14,11.026 L29.293,11.026 L25.146,15.172 C24.951,15.368 24.951,15.684 25.146,15.88 L29.293,20.026 L14,20.026 Z M26.207,15.526 L30.854,10.88 C30.996,10.736 31.039,10.522 30.962,10.335 C30.885,10.148 30.702,10.026 30.5,10.026 L14,10.026 L14,8.97 C14.596,8.76 15.026,8.198 15.026,7.531 C15.026,6.687 14.34,6 13.495,6 C12.65,6 11.963,6.687 11.963,7.531 C11.963,8.201 12.398,8.766 13,8.973 L13,33.026 L10,33.026 L10,34.026 L17,34.026 L17,33.026 L14,33.026 L14,21.026 L30.5,21.026 C30.702,21.026 30.885,20.904 30.962,20.717 C31.039,20.53 30.996,20.316 30.854,20.172 L26.207,15.526 Z" fill="#FFFFFF"></path>
+      </g>
+    </symbol>
+  </defs>
+
+  <!-- ══ Region bands behind both lanes ═══════════════════════════════════ -->
+  <rect x="8" y="30" width="412" height="176" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#icr-grp-region" x="18" y="38" width="14" height="14"/>
+  <text x="38" y="49" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">ap-southeast-2 · Sydney</text>
+
+  <rect x="560" y="30" width="412" height="176" rx="12" class="diagram-region" fill="#f7fbfc" stroke="#0b6f88"/>
+  <use href="#icr-grp-region" x="570" y="38" width="14" height="14"/>
+  <text x="590" y="49" class="diagram-region-label" fill="#085568" font-size="10" font-weight="600">ap-southeast-6 · Auckland</text>
+
+  <!-- ══ forward: syd-dev → akl-dev ═══════════════════════════════════════ -->
+  <text x="490" y="60" text-anchor="middle" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">syd-dev → akl-dev</text>
+
+  <rect x="16" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-ec2" x="24" y="74" width="20" height="20"/>
+  <text x="52" y="84" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">syd-dev</text>
+  <text x="52" y="99" class="diagram-caption" fill="#3a5560" font-size="9">spoke</text>
+
+  <rect x="154" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-tgw" x="162" y="74" width="20" height="20"/>
+  <text x="190" y="84" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">syd TGW</text>
+  <text x="190" y="99" class="diagram-caption" fill="#3a5560" font-size="9">inspection RT</text>
+
+  <rect x="292" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <rect x="292" y="66" width="118" height="44" rx="8" fill="none" class="diagram-edge-allow" stroke="#067647"/>
+  <use href="#icr-aws-nfw" x="300" y="74" width="20" height="20"/>
+  <text x="328" y="84" class="diagram-allow-tag" fill="#067647" font-size="10" font-weight="600">syd NFW</text>
+  <text x="328" y="99" class="diagram-caption" fill="#3a5560" font-size="9">inspect</text>
+
+  <rect x="430" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-peering" x="438" y="74" width="20" height="20"/>
+  <text x="466" y="84" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">peer</text>
+  <text x="466" y="99" class="diagram-caption" fill="#3a5560" font-size="9">TGW peering</text>
+
+  <rect x="568" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-tgw" x="576" y="74" width="20" height="20"/>
+  <text x="604" y="84" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">akl TGW</text>
+  <text x="604" y="99" class="diagram-caption" fill="#3a5560" font-size="9">inspection RT</text>
+
+  <rect x="706" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <rect x="706" y="66" width="118" height="44" rx="8" fill="none" class="diagram-edge-allow" stroke="#067647"/>
+  <use href="#icr-aws-nfw" x="714" y="74" width="20" height="20"/>
+  <text x="742" y="84" class="diagram-allow-tag" fill="#067647" font-size="10" font-weight="600">akl NFW</text>
+  <text x="742" y="99" class="diagram-caption" fill="#3a5560" font-size="9">inspect</text>
+
+  <rect x="844" y="66" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-ec2" x="852" y="74" width="20" height="20"/>
+  <text x="880" y="84" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">akl-dev</text>
+  <text x="880" y="99" class="diagram-caption" fill="#3a5560" font-size="9">no_inspection</text>
+
+  <g class="diagram-edge" stroke="#7a969e" stroke-width="1.5">
+    <line x1="136" y1="88" x2="150" y2="88" marker-end="url(#icr-arrow)"/>
+    <line x1="274" y1="88" x2="288" y2="88" marker-end="url(#icr-arrow)"/>
+    <line x1="412" y1="88" x2="426" y2="88" marker-end="url(#icr-arrow)"/>
+    <line x1="550" y1="88" x2="564" y2="88" marker-end="url(#icr-arrow)"/>
+    <line x1="688" y1="88" x2="702" y2="88" marker-end="url(#icr-arrow)"/>
+    <line x1="826" y1="88" x2="840" y2="88" marker-end="url(#icr-arrow)"/>
+  </g>
+
+  <!-- ══ return: akl-dev → syd-dev, the mirror ════════════════════════════ -->
+  <text x="490" y="146" text-anchor="middle" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">akl-dev → syd-dev</text>
+
+  <rect x="16" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-ec2" x="24" y="160" width="20" height="20"/>
+  <text x="52" y="170" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">syd-dev</text>
+  <text x="52" y="185" class="diagram-caption" fill="#3a5560" font-size="9">no_inspection</text>
+
+  <rect x="154" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <rect x="154" y="152" width="118" height="44" rx="8" fill="none" class="diagram-edge-allow" stroke="#067647"/>
+  <use href="#icr-aws-nfw" x="162" y="160" width="20" height="20"/>
+  <text x="190" y="170" class="diagram-allow-tag" fill="#067647" font-size="10" font-weight="600">syd NFW</text>
+  <text x="190" y="185" class="diagram-caption" fill="#3a5560" font-size="9">inspect</text>
+
+  <rect x="292" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-tgw" x="300" y="160" width="20" height="20"/>
+  <text x="328" y="170" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">syd TGW</text>
+  <text x="328" y="185" class="diagram-caption" fill="#3a5560" font-size="9">inspection RT</text>
+
+  <rect x="430" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-peering" x="438" y="160" width="20" height="20"/>
+  <text x="466" y="170" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">peer</text>
+  <text x="466" y="185" class="diagram-caption" fill="#3a5560" font-size="9">TGW peering</text>
+
+  <rect x="568" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <rect x="568" y="152" width="118" height="44" rx="8" fill="none" class="diagram-edge-allow" stroke="#067647"/>
+  <use href="#icr-aws-nfw" x="576" y="160" width="20" height="20"/>
+  <text x="604" y="170" class="diagram-allow-tag" fill="#067647" font-size="10" font-weight="600">akl NFW</text>
+  <text x="604" y="185" class="diagram-caption" fill="#3a5560" font-size="9">inspect</text>
+
+  <rect x="706" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-tgw" x="714" y="160" width="20" height="20"/>
+  <text x="742" y="170" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">akl TGW</text>
+  <text x="742" y="185" class="diagram-caption" fill="#3a5560" font-size="9">inspection RT</text>
+
+  <rect x="844" y="152" width="118" height="44" rx="8" class="diagram-panel" fill="#ffffff" stroke="#c5d4d8"/>
+  <use href="#icr-aws-ec2" x="852" y="160" width="20" height="20"/>
+  <text x="880" y="170" class="diagram-label" fill="#1a3844" font-size="10" font-weight="600">akl-dev</text>
+  <text x="880" y="185" class="diagram-caption" fill="#3a5560" font-size="9">spoke</text>
+
+  <g class="diagram-edge" stroke="#7a969e" stroke-width="1.5">
+    <line x1="840" y1="174" x2="826" y2="174" marker-end="url(#icr-arrow)"/>
+    <line x1="702" y1="174" x2="688" y2="174" marker-end="url(#icr-arrow)"/>
+    <line x1="564" y1="174" x2="550" y2="174" marker-end="url(#icr-arrow)"/>
+    <line x1="426" y1="174" x2="412" y2="174" marker-end="url(#icr-arrow)"/>
+    <line x1="288" y1="174" x2="274" y2="174" marker-end="url(#icr-arrow)"/>
+    <line x1="150" y1="174" x2="136" y2="174" marker-end="url(#icr-arrow)"/>
+  </g>
+
+  <text x="12" y="226" class="diagram-caption" fill="#3a5560" font-size="9">Egress follows 0.0.0.0/0 through the local firewall before the peer — that is double-inspect.</text>
+  <text x="12" y="242" class="diagram-caption" fill="#3a5560" font-size="9">So a successful cross-Region probe leaves alert and flow log entries on both hubs.</text>
+</svg>

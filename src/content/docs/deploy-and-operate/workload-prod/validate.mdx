@@ -1,0 +1,114 @@
+---
+title: Validate
+description: Confirm both prod spokes are healthy locally; optional Syd-dev ↔ Syd-prod check.
+---
+
+import Checklist from "@/components/Checklist.astro";
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+<Checklist
+  id="workloads-prod-validate"
+  items={[
+    "Sydney prod local HTTP + DNS already passed",
+    "Auckland prod local HTTP + DNS already passed",
+    "Both prod attachments available; both SSM Online",
+    "Hub peering re-applied with enable_prod_workloads=true",
+    "Optional: Syd-dev ↔ Syd-prod local mesh works (when NFW off or allowed)",
+  ]}
+/>
+
+## Overview
+
+Joint gate after each Region’s **prod** local checks. Then re-apply hub-peering
+so prod CIDRs and `syd-prod` / `akl-prod` DNS are published.
+
+```text
+  Workloads (prod) Sydney  → local HTTP + DNS
+  Workloads (prod) Auckland → local HTTP + DNS
+            → Workloads (prod) Validate (here)
+            → hub-peering enable_prod_workloads=true
+            → Prove mesh (include prod) / NFW chapter
+```
+
+## Compare
+
+<Steps>
+
+1. Side-by-side outputs:
+
+   ```bash frame="terminal"
+   ( cd environment/sandbox/ap-southeast-2/workload-prod && \
+     echo "=== Sydney prod ===" && terraform output -raw vpc_cidr && \
+     terraform output -raw test_host_private_ip && \
+     terraform output -raw test_host_instance_id )
+   ( cd environment/sandbox/ap-southeast-6/workload-prod && \
+     echo "=== Auckland prod ===" && terraform output -raw vpc_cidr && \
+     terraform output -raw test_host_private_ip && \
+     terraform output -raw test_host_instance_id )
+   ```
+
+   ```text
+   === Sydney prod ===
+   10.255.2.0/24
+   10.255.2.69
+   i-01780abcba294ad2f
+   === Auckland prod ===
+   10.254.2.0/24
+   10.254.2.22
+   i-072c72766be1110b3
+   ```
+
+2. Re-check SSM Online on both:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_PROD_WORKLOAD_PROFILE
+   SYD_PROD_ID=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_instance_id)
+   AKL_PROD_ID=$(cd environment/sandbox/ap-southeast-6/workload-prod && terraform output -raw test_host_instance_id)
+
+   aws ssm describe-instance-information --region ap-southeast-2 \
+     --filters "Key=InstanceIds,Values=$SYD_PROD_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+
+   aws ssm describe-instance-information --region ap-southeast-6 \
+     --filters "Key=InstanceIds,Values=$AKL_PROD_ID" \
+     --query 'InstanceInformationList[0].PingStatus' --output text
+   ```
+
+   ```text
+   Online
+   Online
+   ```
+
+3. Publish prod into peering / DNS:
+
+   ```bash frame="terminal"
+   cd environment/sandbox/ap-southeast-2/hub-peering
+   # persist in terraform.tfvars: enable_prod_workloads = true
+   terraform apply -var='enable_prod_workloads=true'
+   ```
+
+4. Optional — same-Region dev ↔ prod (Sydney), before or after NFW:
+
+   ```bash frame="terminal"
+   export AWS_PROFILE=YOUR_DEV_WORKLOAD_PROFILE
+   SYD_DEV_ID=$(cd environment/sandbox/ap-southeast-2/workload-dev && terraform output -raw test_host_instance_id)
+   SYD_PROD_IP=$(cd environment/sandbox/ap-southeast-2/workload-prod && terraform output -raw test_host_private_ip)
+
+   aws ssm send-command --region ap-southeast-2 --instance-ids "$SYD_DEV_ID" \
+     --document-name AWS-RunShellScript \
+     --parameters 'commands=["ping -c3 '"$SYD_PROD_IP"'; curl -sS -m 5 http://'"$SYD_PROD_IP"'/"]' \
+     --query 'Command.CommandId' --output text
+   ```
+
+   Expect: ICMP replies and the demo HTML from `10.255.2.69`.
+
+</Steps>
+
+<Aside type="note">
+  Cross-Region prod checks use <code>akl-prod.lab.demo</code> /
+  <code>syd-prod.lab.demo</code> after peering publishes them — see Prove mesh.
+</Aside>
+
+## Next
+
+[Prove mesh](/deploy-and-operate/prove/)
